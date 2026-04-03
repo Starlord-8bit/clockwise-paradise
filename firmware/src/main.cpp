@@ -26,6 +26,34 @@ bool autoBrightEnabled;
 long autoBrightMillis = 0;
 uint8_t currentBrightSlot = -1;
 
+// Auto-change clockface: track last day to detect midnight rollover
+int lastDay = -1;
+
+void autoChangeClockfaceCheck() {
+  uint8_t mode = ClockwiseParams::getInstance()->autoChange;
+  if (mode == ClockwiseParams::AUTO_CHANGE_OFF) return;
+
+  int today = cwDateTime.getDay();  // day of month
+  if (lastDay == -1) {
+    lastDay = today;  // initialise on first call
+    return;
+  }
+  if (today != lastDay) {
+    lastDay = today;
+    // Day changed — pick next clockface
+    uint8_t current = clockface->getCurrentClockfaceIndex();
+    uint8_t total   = clockface->getClockfaceCount();
+    uint8_t next;
+    if (mode == ClockwiseParams::AUTO_CHANGE_SEQUENCE) {
+      next = (current + 1) % total;
+    } else {
+      // Random — avoid picking the same face twice in a row
+      do { next = random(total); } while (next == current && total > 1);
+    }
+    clockface->setClockface(next);
+  }
+}
+
 bool isValidI2SSpeed(uint32_t speed) {
   return speed == 8000000 || speed == 16000000 || speed == 20000000;
 }
@@ -36,11 +64,12 @@ bool isValidDriver(uint32_t drv) {
 
 
 
-void displaySetup(bool swapBlueGreen, bool swapBlueRed, uint8_t displayBright, uint8_t displayRotation, uint8_t driver, uint32_t i2cSpeed, uint8_t E_pin)
+void displaySetup(uint8_t ledColorOrder, bool reversePhase, uint8_t displayBright, uint8_t displayRotation, uint8_t driver, uint32_t i2cSpeed, uint8_t E_pin)
 {
   HUB75_I2S_CFG mxconfig(64, 64, 1);
 
-  if (swapBlueGreen)
+  // LED colour order: 0=RGB (default), 1=RBG, 2=GBR
+  if (ledColorOrder == ClockwiseParams::LED_ORDER_RBG)
   {
     // Swap Blue and Green pins because the panel is RBG instead of RGB.
     mxconfig.gpio.b1 = 26;
@@ -48,18 +77,17 @@ void displaySetup(bool swapBlueGreen, bool swapBlueRed, uint8_t displayBright, u
     mxconfig.gpio.g1 = 27;
     mxconfig.gpio.g2 = 13;
   }
-
-  if (swapBlueRed)
+  else if (ledColorOrder == ClockwiseParams::LED_ORDER_GBR)
   {
-    // Swap Blue and Red pins. 
-    mxconfig.gpio.b1 = 25;
-    mxconfig.gpio.b2 = 14;
-    mxconfig.gpio.r1 = 27;
-    mxconfig.gpio.r2 = 13;
+    // GBR: swap Green and Red, keep Blue
+    mxconfig.gpio.g1 = 25;
+    mxconfig.gpio.g2 = 14;
+    mxconfig.gpio.r1 = 26;
+    mxconfig.gpio.r2 = 12;
   }
 
   mxconfig.gpio.e = E_pin;
-  mxconfig.clkphase = false;
+  mxconfig.clkphase = reversePhase;
 
   if (isValidDriver(driver)) {
     mxconfig.driver = static_cast<HUB75_I2S_CFG::shift_driver>(driver);
@@ -123,7 +151,7 @@ void setup()
   uint32_t i2cSpeed = ClockwiseParams::getInstance()->i2cSpeed;
   uint8_t E_pin = ClockwiseParams::getInstance()->E_pin;
   
-  displaySetup(ClockwiseParams::getInstance()->swapBlueGreen, ClockwiseParams::getInstance()->swapBlueRed, ClockwiseParams::getInstance()->displayBright, ClockwiseParams::getInstance()->displayRotation, driver, i2cSpeed, E_pin);
+  displaySetup(ClockwiseParams::getInstance()->ledColorOrder, ClockwiseParams::getInstance()->reversePhase, ClockwiseParams::getInstance()->displayBright, ClockwiseParams::getInstance()->displayRotation, driver, i2cSpeed, E_pin);
   clockface = new Clockface(dma_display);
 
   autoBrightEnabled = (ClockwiseParams::getInstance()->autoBrightMax > 0);
@@ -159,4 +187,5 @@ void loop()
   }
 
   automaticBrightControl();
+  autoChangeClockfaceCheck();
 }

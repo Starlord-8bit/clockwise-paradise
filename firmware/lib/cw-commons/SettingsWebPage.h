@@ -84,6 +84,30 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
           icon: "fa-random",
           save: "updatePreference('swapBlueRed', Number(swapBR.checked))",
           property: "swapBlueRed"
+        },
+        {
+          title: "LED Colour Order",
+          description: "Select the colour order of your LED panel. RGB is standard; use RBG if blue and green are swapped, GBR if green and red are swapped.",
+          formInput: "<select name='ledColorOrder' id='ledColorOrder'><option value='0'" + (settings.ledcolororder == 0 ? " selected='selected'" : "") + ">RGB (default)</option><option value='1'" + (settings.ledcolororder == 1 ? " selected='selected'" : "") + ">RBG</option><option value='2'" + (settings.ledcolororder == 2 ? " selected='selected'" : "") + ">GBR</option></select>",
+          icon: "fa-random",
+          save: "updatePreference('ledColorOrder', ledColorOrder.value)",
+          property: "ledColorOrder"
+        },
+        {
+          title: "Reverse Phase",
+          description: "Enable if your LED panel shows ghosting or misaligned pixels. Inverts the clock phase signal.",
+          formInput: "<input class='w3-check' type='checkbox' id='reversePhase' " + (settings.reversephase == '1' ? "checked" : "") + "><label for='reversePhase'> Enable</label>",
+          icon: "fa-adjust",
+          save: "updatePreference('reversePhase', Number(reversePhase.checked))",
+          property: "reversePhase"
+        },
+        {
+          title: "Auto-change Clockface",
+          description: "Automatically change the clockface at midnight each day.",
+          formInput: "<select name='autoChange' id='autoChange'><option value='0'" + (settings.autochange == 0 ? " selected='selected'" : "") + ">Off</option><option value='1'" + (settings.autochange == 1 ? " selected='selected'" : "") + ">Sequence</option><option value='2'" + (settings.autochange == 2 ? " selected='selected'" : "") + ">Random</option></select>",
+          icon: "fa-exchange",
+          save: "updatePreference('autoChange', autoChange.value)",
+          property: "autoChange"
         },        
         {
           title: "Timezone",

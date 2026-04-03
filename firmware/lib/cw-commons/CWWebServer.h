@@ -111,8 +111,20 @@ struct ClockwiseWebServer
         ClockwiseParams::getInstance()->autoBrightMax = value.substring(5,9).toInt();
       } else if (key == ClockwiseParams::getInstance()->PREF_SWAP_BLUE_GREEN) {
         ClockwiseParams::getInstance()->swapBlueGreen = (value == "1");
+        // Legacy: map old swapBlueGreen to new ledColorOrder
+        if (value == "1") ClockwiseParams::getInstance()->ledColorOrder = ClockwiseParams::LED_ORDER_RBG;
+        else if (!ClockwiseParams::getInstance()->swapBlueRed) ClockwiseParams::getInstance()->ledColorOrder = ClockwiseParams::LED_ORDER_RGB;
       } else if (key == ClockwiseParams::getInstance()->PREF_SWAP_BLUE_RED) {
         ClockwiseParams::getInstance()->swapBlueRed = (value == "1");
+        // Legacy: map old swapBlueRed to new ledColorOrder
+        if (value == "1") ClockwiseParams::getInstance()->ledColorOrder = ClockwiseParams::LED_ORDER_GBR;
+        else if (!ClockwiseParams::getInstance()->swapBlueGreen) ClockwiseParams::getInstance()->ledColorOrder = ClockwiseParams::LED_ORDER_RGB;
+      } else if (key == ClockwiseParams::getInstance()->PREF_LED_COLOR_ORDER) {
+        ClockwiseParams::getInstance()->ledColorOrder = value.toInt();
+      } else if (key == ClockwiseParams::getInstance()->PREF_REVERSE_PHASE) {
+        ClockwiseParams::getInstance()->reversePhase = (value == "1");
+      } else if (key == ClockwiseParams::getInstance()->PREF_AUTO_CHANGE) {
+        ClockwiseParams::getInstance()->autoChange = value.toInt();
       } else if (key == ClockwiseParams::getInstance()->PREF_USE_24H_FORMAT) {
         ClockwiseParams::getInstance()->use24hFormat = (value == "1");
       } else if (key == ClockwiseParams::getInstance()->PREF_LDR_PIN) {
@@ -163,6 +175,9 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_DISPLAY_ABC_MAX, ClockwiseParams::getInstance()->autoBrightMax);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_SWAP_BLUE_GREEN, ClockwiseParams::getInstance()->swapBlueGreen);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_SWAP_BLUE_RED, ClockwiseParams::getInstance()->swapBlueRed);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_LED_COLOR_ORDER, ClockwiseParams::getInstance()->ledColorOrder);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_REVERSE_PHASE, ClockwiseParams::getInstance()->reversePhase);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_AUTO_CHANGE, ClockwiseParams::getInstance()->autoChange);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_USE_24H_FORMAT, ClockwiseParams::getInstance()->use24hFormat);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_LDR_PIN, ClockwiseParams::getInstance()->ldrPin);    
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_TIME_ZONE, ClockwiseParams::getInstance()->timeZone.c_str());
