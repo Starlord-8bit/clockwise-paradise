@@ -94,6 +94,10 @@ struct ClockwiseWebServer
       if (key == "pin") {
         readPin(client, key, value.toInt());
       }
+    } else if (method == "GET" && path == "/backup") {
+      exportConfig(client);
+    } else if (method == "POST" && path == "/restore") {
+      importConfig(client, key, value);
     } else if (method == "POST" && path == "/restart") {
       client.println("HTTP/1.0 204 No Content");
       force_restart = true;
@@ -192,6 +196,67 @@ struct ClockwiseWebServer
     client.println();
   }
 
+
+  /**
+   * GET /backup — returns all settings as a JSON file download.
+   * The user can save this and restore it later via POST /restore.
+   */
+  void exportConfig(WiFiClient client) {
+    auto* p = ClockwiseParams::getInstance();
+    p->load();
+
+    String json = "{";
+    json += "\"use24hFormat\":"  + String(p->use24hFormat ? 1 : 0)  + ",";
+    json += "\"displayBright\":" + String(p->displayBright)           + ",";
+    json += "\"autoBrightMin\":" + String(p->autoBrightMin)           + ",";
+    json += "\"autoBrightMax\":" + String(p->autoBrightMax)           + ",";
+    json += "\"ldrPin\":"        + String(p->ldrPin)                  + ",";
+    json += "\"ledColorOrder\":" + String(p->ledColorOrder)           + ",";
+    json += "\"reversePhase\":"  + String(p->reversePhase ? 1 : 0)   + ",";
+    json += "\"displayRotation\":" + String(p->displayRotation)       + ",";
+    json += "\"timeZone\":\""    + p->timeZone                        + "\",";
+    json += "\"ntpServer\":\""   + p->ntpServer                       + "\",";
+    json += "\"manualPosix\":\"" + p->manualPosix                     + "\",";
+    json += "\"canvasFile\":\""  + p->canvasFile                      + "\",";
+    json += "\"canvasServer\":\"" + p->canvasServer                   + "\",";
+    json += "\"driver\":"        + String(p->driver)                  + ",";
+    json += "\"i2cSpeed\":"      + String(p->i2cSpeed)                + ",";
+    json += "\"E_pin\":"         + String(p->E_pin)                   + ",";
+    json += "\"autoChange\":"    + String(p->autoChange)              + ",";
+    json += "\"brightMethod\":"  + String(p->brightMethod)            + ",";
+    json += "\"nightStartH\":"   + String(p->nightStartH)             + ",";
+    json += "\"nightStartM\":"   + String(p->nightStartM)             + ",";
+    json += "\"nightEndH\":"     + String(p->nightEndH)               + ",";
+    json += "\"nightEndM\":"     + String(p->nightEndM)               + ",";
+    json += "\"nightBright\":"   + String(p->nightBright)             + ",";
+    json += "\"nightMode\":"     + String(p->nightMode)               + ",";
+    json += "\"nightLevel\":"    + String(p->nightLevel)              + ",";
+    json += "\"superColor\":"    + String(p->superColor)              + ",";
+    json += "\"mqttEnabled\":"   + String(p->mqttEnabled ? 1 : 0)    + ",";
+    json += "\"mqttBroker\":\""  + p->mqttBroker                      + "\",";
+    json += "\"mqttPort\":"      + String(p->mqttPort)                + ",";
+    json += "\"mqttUser\":\""    + p->mqttUser                        + "\",";
+    json += "\"mqttPrefix\":\""  + p->mqttPrefix                      + "\"";
+    // Note: mqttPass intentionally omitted from export for security
+    json += "}";
+
+    client.println("HTTP/1.0 200 OK");
+    client.println("Content-Type: application/json");
+    client.println("Content-Disposition: attachment; filename=\"clockwise-paradise-config.json\"");
+    client.println("Content-Length: " + String(json.length()));
+    client.println();
+    client.print(json);
+  }
+
+  /**
+   * POST /restore?key=value — applies a single key=value pair from the config JSON.
+   * The web UI sends each key individually (same pattern as /set).
+   * This endpoint handles the "restore" action from the settings page.
+   */
+  void importConfig(WiFiClient client, String key, String value) {
+    // Reuse the /set handler logic — restore is just bulk /set calls
+    processRequest(client, "POST", "/set", key, value);
+  }
 
   void getCurrentSettings(WiFiClient client) {
     ClockwiseParams::getInstance()->load();

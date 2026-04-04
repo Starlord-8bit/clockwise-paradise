@@ -24,6 +24,9 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
   <div class="w3-bar w3-black w3-medium">
     <div id="fw-version" class="w3-bar-item w3-black w3-hover-red"></div>
     <div id="ssid" class="w3-bar-item w3-hover-blue w3-right"></div>
+    <div class="w3-bar-item w3-button w3-hover-teal w3-right" onclick="backupConfig()"><i class='fa fa-download'></i> Backup</div>
+    <div class="w3-bar-item w3-button w3-hover-orange w3-right" onclick="document.getElementById('restoreInput').click()"><i class='fa fa-upload'></i> Restore</div>
+    <input type='file' id='restoreInput' accept='.json' style='display:none' onchange='restoreConfig(this)'>
     <div class="w3-bar-item w3-button w3-hover-yellow w3-right" onclick="restartDevice();"><i class='fa fa-power-off'></i> Restart</div>
     <div id="status" class="w3-bar-item w3-green" style="display:none"><i class='fa fa-floppy-o'></i> Saved! Restart your device</div>
   </div>
@@ -294,6 +297,33 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
       });  
     }
 
+    function backupConfig() {
+      window.location.href = '/backup';
+    }
+    function restoreConfig(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const cfg = JSON.parse(e.target.result);
+          const keys = Object.keys(cfg);
+          let i = 0;
+          function sendNext() {
+            if (i >= keys.length) {
+              document.getElementById('status').style.display = 'block';
+              setTimeout(() => { fetch('/restart', {method:'POST'}); }, 1500);
+              return;
+            }
+            const k = keys[i++];
+            updatePreference(k, cfg[k]);
+            setTimeout(sendNext, 150);
+          }
+          sendNext();
+        } catch(err) { alert('Invalid config file: ' + err); }
+      };
+      reader.readAsText(file);
+    }
     function restartDevice() {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/restart');
