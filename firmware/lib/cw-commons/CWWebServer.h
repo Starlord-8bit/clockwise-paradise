@@ -106,7 +106,7 @@ struct ClockwiseWebServer
       client.println("HTTP/1.0 200 OK");
       client.println("Content-Type: application/json");
       client.println();
-      client.print("{"status":"updating","message":"OTA started — device will reboot"}");
+      client.print("{\"status\":\"updating\",\"message\":\"OTA started - device will reboot\"}");
       client.flush();
       client.stop();
       CWOTA::getInstance()->checkAndUpdate();

@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * CWOTA.h — Over-the-air firmware update for Clockwise Paradise
+ * CWOTA.h  -  Over-the-air firmware update for Clockwise Paradise
  *
  * Fetches the latest release from GitHub Releases API, compares version,
  * and flashes via ESP-IDF esp_https_ota if a newer version is available.
@@ -14,14 +14,14 @@
  *   5. Reboot on success
  *
  * Config (CWPreferences):
- *   otaEnabled    — allow OTA updates (default: true)
- *   otaOwner      — GitHub owner  (default: "Starlord-8bit")
- *   otaRepo       — GitHub repo   (default: "clockwise-paradise")
- *   otaAssetName  — .bin filename  (default: "clockwise-paradise.bin")
+ *   otaEnabled     -  allow OTA updates (default: true)
+ *   otaOwner       -  GitHub owner  (default: "Starlord-8bit")
+ *   otaRepo        -  GitHub repo   (default: "clockwise-paradise")
+ *   otaAssetName   -  .bin filename  (default: "clockwise-paradise.bin")
  *
  * Triggered by:
- *   - POST /ota/check  — check for update, returns JSON with available version
- *   - POST /ota/update — check + flash if newer version available
+ *   - POST /ota/check   -  check for update, returns JSON with available version
+ *   - POST /ota/update  -  check + flash if newer version available
  *   - Automatic check on boot (if otaEnabled)
  */
 
@@ -78,7 +78,7 @@ public:
             return info;
         }
 
-        // Parse tag_name from JSON (minimal parsing — no full JSON library needed)
+        // Parse tag_name from JSON (minimal parsing  -  no full JSON library needed)
         info.version    = _extractJsonString(response, "tag_name");
         String asset_url = _extractAssetUrl(response, p->otaAssetName);
 
@@ -111,18 +111,27 @@ public:
         StatusController::getInstance()->printCenter("Updating...", 32);
 
         esp_http_client_config_t http_cfg = {};
-        http_cfg.url                 = url.c_str();
+        char url_buf[512];
+        url.toCharArray(url_buf, sizeof(url_buf));
+        http_cfg.url                 = url_buf;
         http_cfg.crt_bundle_attach   = esp_crt_bundle_attach;
         http_cfg.keep_alive_enable   = true;
         http_cfg.buffer_size         = 4096;
         http_cfg.buffer_size_tx      = 1024;
 
+        // esp_https_ota API differs between IDF v4.x and v5.x
+        // v4.x: takes esp_http_client_config_t* directly
+        // v5.x: takes esp_https_ota_config_t* with http_config member
+        // Using compile-time detection for compatibility
+#if ESP_IDF_VERSION_MAJOR >= 5
         esp_https_ota_config_t ota_cfg = {};
         ota_cfg.http_config = &http_cfg;
-
         esp_err_t err = esp_https_ota(&ota_cfg);
+#else
+        esp_err_t err = esp_https_ota(&http_cfg);
+#endif
         if (err == ESP_OK) {
-            Serial.println("[OTA] Flash successful — rebooting");
+            Serial.println("[OTA] Flash successful  -  rebooting");
             esp_restart();
             return "";  // never reached
         }
@@ -147,7 +156,7 @@ public:
         if (info.download_url.isEmpty()) {
             return "{\"status\":\"error\",\"message\":\"Asset not found in release\"}";
         }
-        // Flash — this call doesn't return on success
+        // Flash  -  this call doesn't return on success
         String err = flashFromUrl(info.download_url);
         return "{\"status\":\"error\",\"message\":\"" + err + "\"}";
     }
@@ -195,7 +204,7 @@ private:
         return String(buf);
     }
 
-    // Minimal JSON string extractor (no full parser — saves ~10KB flash)
+    // Minimal JSON string extractor (no full parser  -  saves ~10KB flash)
     String _extractJsonString(const String& json, const String& key) {
         String search = "\"" + key + "\":\"";
         int start = json.indexOf(search);
