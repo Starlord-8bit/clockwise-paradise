@@ -203,7 +203,7 @@ struct ClockwiseParams
         nightLevel    = preferences.getUInt(PREF_NIGHT_LEVEL, 1);
         superColor    = preferences.getUInt(PREF_SUPER_COLOR, 16936);
         bigclockServer = preferences.getString(PREF_BIGCLOCK_SERVER, "raw.githubusercontent.com");
-        bigclockFile   = preferences.getString(PREF_BIGCLOCK_FILE, "Starlord-8bit/clockwise-paradise/main/clockfaces/bigclock");
+        bigclockFile   = preferences.getString(PREF_BIGCLOCK_FILE, "clockwise-paradise/main/clockfaces/bigclock");
         totalDays     = preferences.getUInt(PREF_TOTAL_DAYS, 0);
         mqttEnabled   = preferences.getBool(PREF_MQTT_ENABLED, false);
         mqttBroker    = preferences.getString(PREF_MQTT_BROKER, "");
