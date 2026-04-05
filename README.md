@@ -32,6 +32,7 @@ It builds on the solid foundation of the original, adds the best features from t
 | **Auto-change Clockface** | Rotate faces at midnight — sequential or random |
 | **Uptime Counter** | Days running shown in the settings footer |
 | **Web Server Watchdog** | Auto-restart HTTP server every 5 minutes — no more freezes |
+| **OTA Updates** | Update firmware over Wi-Fi — via web UI or HTTP API (no USB required after initial flash) |
 | **Canvas Clockfaces** | 11 ready-to-use JSON faces in `clockfaces/` — local server supported |
 
 ### No callhome, no cloud, no surprises
@@ -89,6 +90,57 @@ idf.py flash
 ```
 
 Or use the web flasher at [clockwise.page](https://clockwise.page) with a release `.bin`.
+
+---
+
+## 🔌 Flashing
+
+### Initial flash (USB — one time only)
+
+The first time you flash a new ESP32 you need to write three files: the bootloader, the partition table, and the app firmware. Download all three from the [latest release](https://github.com/Starlord-8bit/clockwise-paradise/releases/latest):
+
+```
+bootloader.bin         → flash at 0x1000
+partition-table.bin    → flash at 0x8000
+clockwise-paradise.bin → flash at 0x10000
+```
+
+Using `esptool`:
+
+```bash
+esptool --chip esp32 --port /dev/ttyUSB0 --baud 460800 write-flash \
+  0x1000  bootloader.bin \
+  0x8000  partition-table.bin \
+  0x10000 clockwise-paradise.bin
+```
+
+> **Tip:** hold the BOOT button on the ESP32, tap RESET, then release BOOT before running the command. This forces the chip into download mode if auto-reset doesn't work.
+
+### OTA updates (Wi-Fi — all subsequent updates)
+
+Once the initial firmware is flashed, you never need USB again.
+
+**Via the web UI:**
+1. Open `http://<device-ip>/` in a browser
+2. Click **Upload .bin** in the toolbar
+3. Select `clockwise-paradise.bin` from the latest release
+4. Wait ~15 seconds for the device to reboot
+
+**Via HTTP API (for scripts / AI automation):**
+```bash
+curl -X POST http://<device-ip>/ota/upload \
+     -H 'Content-Type: application/octet-stream' \
+     --data-binary @clockwise-paradise.bin
+```
+Returns `{"status":"ok"}` and reboots, or `{"status":"error","message":"..."}` on failure.
+
+**Via GitHub auto-update (checks latest release):**
+```bash
+curl -X POST http://<device-ip>/ota/update
+```
+The device fetches and flashes the latest `clockwise-paradise.bin` from GitHub Releases automatically.
+
+> **Note:** OTA can only update the app firmware (`clockwise-paradise.bin`). Bootloader and partition table changes still require USB.
 
 ---
 
