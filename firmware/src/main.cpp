@@ -146,14 +146,22 @@ void nightModeCheck()
       dma_display->setBrightness8(bright);
       p->canvasServer = p->bigclockServer;
       p->canvasFile   = p->bigclockFile;
+#if CW_DISPATCHER_ENABLED
+      clockface = CWClockfaceDispatcher::create(p->clockFaceIndex, dma_display);
+#else
       clockface = new Clockface(dma_display);
+#endif
       if (wifi.connectionSucessfulOnce) clockface->setup(&cwDateTime);
     }
   } else if (!inNight && nightModeActive) {
     nightModeActive = false;
     p->load();  // restore original canvas settings
     dma_display->setBrightness8(p->displayBright);
+#if CW_DISPATCHER_ENABLED
+    clockface = CWClockfaceDispatcher::create(p->clockFaceIndex, dma_display);
+#else
     clockface = new Clockface(dma_display);
+#endif
     if (wifi.connectionSucessfulOnce) clockface->setup(&cwDateTime);
   }
 }
