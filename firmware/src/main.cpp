@@ -230,4 +230,17 @@ void loop()
 
   automaticBrightControl();
   nightModeCheck();
+
+  // Yield to the FreeRTOS scheduler so IDLE1 can reset the task watchdog.
+  // Without this, loopTask (Arduino loop on CPU 1) spins continuously and
+  // starves the idle task, triggering "Task watchdog got triggered" panics
+  // every ~5 s. A 1 ms delay is enough to keep IDLE1 alive without any
+  // visible impact on display refresh rate (DMA handles the panel async).
+  //
+  // NOTE for other agents: do not remove this delay or replace with a
+  // vTaskDelay(0) — zero ticks does NOT yield on ESP-IDF v4.4 FreeRTOS;
+  // it must be at least 1. If you add a blocking operation inside loop()
+  // that already yields (e.g. a FreeRTOS queue wait), audit whether this
+  // delay is still needed to avoid double-sleeping.
+  delay(1);
 }
