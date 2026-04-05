@@ -361,6 +361,7 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
         alert('Could not check for updates');
         document.getElementById('status').style.display = 'none';
       });
+    }
     function backupConfig() {
       window.location.href = '/backup';
     }
@@ -382,6 +383,7 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
             const k = keys[i++];
             updatePreference(k, cfg[k]);
             setTimeout(sendNext, 150);
+          }
           sendNext();
         } catch(err) { alert('Invalid config file: ' + err); }
       };
