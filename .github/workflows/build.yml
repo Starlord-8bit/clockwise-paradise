@@ -1,0 +1,78 @@
+name: Build & Test
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'clockfaces/**'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'clockfaces/**'
+
+jobs:
+  build:
+    name: ESP-IDF Build (${{ matrix.idf_version }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        idf_version:
+          - v4.4.7   # IDF v4.4.x required by arduino-esp32 component
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Build firmware
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: ${{ matrix.idf_version }}
+          target: esp32
+          command: idf.py build
+
+      - name: Upload firmware artifact
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: clockwise-paradise-firmware
+          path: |
+            build/clockwise-paradise.bin
+            build/bootloader/bootloader.bin
+            build/partition_table/partition-table.bin
+          if-no-files-found: warn
+          retention-days: 30
+
+  # Run native unit tests (no hardware needed)
+  test-native:
+    name: Native Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install ESP-IDF dependencies
+        run: |
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Check for native tests
+        id: check_tests
+        run: |
+          if [ -d "firmware/test/test_native" ] && [ -f "firmware/test/test_native/CMakeLists.txt" ]; then
+            echo "has_tests=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_tests=false" >> $GITHUB_OUTPUT
+            echo "No native tests directory found — skipping"
+          fi
+
+      - name: Build and run native tests
+        if: steps.check_tests.outputs.has_tests == 'true'
+        run: |
+          cd firmware/test/test_native
+          cmake -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build
+          ./build/test_native
