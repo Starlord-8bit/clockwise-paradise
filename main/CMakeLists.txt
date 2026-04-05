@@ -28,5 +28,4 @@ message(STATUS "Clockwise Paradise firmware version: ${CW_VERSION}")
 target_compile_options(${COMPONENT_TARGET} PUBLIC
     -DCW_FW_VERSION="${CW_VERSION}"
     -DCW_FW_NAME="Clockwise Paradise"
-    -DCW_DISPATCHER_ENABLED=1
 )
