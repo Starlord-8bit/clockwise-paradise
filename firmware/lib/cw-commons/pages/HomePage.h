@@ -9,34 +9,56 @@ inline void cw_sendHomePage(WiFiClient& client) {
 
   client.println(R"HTML(
   <div class="section">
-    <div class="section-title">Status</div>
-    <div class="row"><label>Firmware</label><div class="ctrl"><span class="ver-badge" id="fw"></span></div></div>
-    <div class="row"><label>Clockface</label><div class="ctrl"><span id="cf" class="small"></span></div></div>
-    <div class="row"><label>WiFi</label><div class="ctrl"><span id="wifi" class="small"></span></div></div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Navigation</div>
-    <div class="row"><label>Clock settings</label><div class="ctrl"><a class="btn btn-secondary btn-block" href="/clock">Open</a></div></div>
-    <div class="row"><label>Sync & Connectivity</label><div class="ctrl"><a class="btn btn-secondary btn-block" href="/sync">Open</a></div></div>
-    <div class="row"><label>Hardware</label><div class="ctrl"><a class="btn btn-secondary btn-block" href="/hardware">Open</a></div></div>
-    <div class="row"><label>Firmware update</label><div class="ctrl"><a class="btn btn-primary btn-block" href="/update">Open</a></div></div>
+    <div class="section-title">Device Status</div>
+    <div class="row"><label>Firmware</label><div class="ctrl"><span class="ver-badge" id="fw-ver">…</span></div></div>
+    <div class="row"><label>Clockface</label><div class="ctrl"><span class="small" id="cf-name">…</span></div></div>
+    <div class="row"><label>WiFi</label><div class="ctrl"><span class="small" id="wifi-info">…</span></div></div>
+    <div class="row"><label>Time</label><div class="ctrl"><span class="small" id="dev-time">…</span></div></div>
+    <div class="row"><label>Uptime</label><div class="ctrl"><span class="small" id="uptime">…</span></div></div>
+    <div class="row"><label>Brightness</label><div class="ctrl"><span class="small" id="bright-info">…</span></div></div>
+    <div class="row"><label>MQTT</label><div class="ctrl"><span class="small" id="mqtt-status">…</span></div></div>
+    <div class="row"><label>HA Discovery</label><div class="ctrl"><span class="small" id="ha-status">⚠ Not implemented</span></div></div>
   </div>
 
   <div class="section">
     <div class="section-title">Quick actions</div>
     <div class="footer">
-      <button class="btn btn-secondary" onclick="location.href='/backup'">⬇ Backup config</button>
-      <button class="btn btn-danger" onclick="restart()">⚡ Reboot</button>
+      <a class="btn btn-secondary" href="/clock">🕐 Clock</a>
+      <a class="btn btn-secondary" href="/sync">🔗 Sync</a>
+      <a class="btn btn-secondary" href="/hardware">🔧 Hardware</a>
+      <a class="btn btn-primary" href="/update">⬆ Update</a>
+      <button class="btn btn-secondary" onclick="location.href='/backup'">⬇ Backup</button>
+      <button class="btn btn-danger" onclick="if(confirm('Reboot device?'))restart()">⚡ Reboot</button>
     </div>
   </div>
 
   <script>
   function onSettingsLoaded(h){
-    $('fw').textContent = (h['cw_fw_name']||'Clockwise Paradise') + ' v' + (h['cw_fw_version']||'?');
-    $('cf').textContent = h['clockface_name'] || 'UNKNOWN';
-    $('wifi').textContent = (h['wifissid']? (h['wifissid']+' @ '+(h['sta ip']||'')) : '');
+    $('fw-ver').textContent = (h['cw_fw_name']||'Clockwise Paradise') + ' v' + (h['cw_fw_version']||'?');
+    $('cf-name').textContent = h['clockface_name'] || '?';
+    var ip = h['wifiip'] || '';
+    var ssid = h['wifissid'] || '';
+    $('wifi-info').textContent = ip ? (ip + ' @ ' + ssid) : ssid;
+    $('bright-info').textContent = 'Level ' + (h['displaybright']||'?') +
+      ' / LDR range ' + (h['autobrightmin']||'0') + '–' + (h['autobrightmax']||'?');
+    $('mqtt-status').textContent = (h['mqttenabled']==='1')
+      ? '✅ Enabled — broker: ' + (h['mqttbroker']||'?')
+      : '❌ Disabled';
   }
+  // Live clock from device NTP — just show browser local time as proxy
+  function tickClock(){
+    $('dev-time').textContent = new Date().toLocaleString('sv-SE',{timeZone:'Europe/Stockholm'});
+  }
+  tickClock(); setInterval(tickClock, 1000);
+  // Uptime: not in /get headers, fetch raw
+  fetch('/get').then(r=>{
+    var start = Date.now();
+    setInterval(()=>{
+      var s = Math.floor((Date.now()-start)/1000);
+      var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
+      $('uptime').textContent = h+'h '+m+'m '+sec+'s (since last page load)';
+    },1000);
+  });
   </script>
   )HTML");
 

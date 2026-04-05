@@ -314,6 +314,13 @@ struct ClockwiseWebServer
       force_restart = true;
     } else if (method == "POST" && path == "/set") {
       ClockwiseParams::getInstance()->load();
+      // URL-decode value (browser sends e.g. Europe%2FStockholm)
+      value.replace("%2F", "/");
+      value.replace("%3A", ":");
+      value.replace("%20", " ");
+      value.replace("%40", "@");
+      value.replace("%2B", "+");
+      value.replace("%2C", ",");
       //a baby seal has died due this ifs
       if (key == ClockwiseParams::getInstance()->PREF_DISPLAY_BRIGHT) {
         ClockwiseParams::getInstance()->displayBright = value.toInt();
@@ -527,6 +534,8 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_S, "CW_FW_VERSION", CW_FW_VERSION);
     client.printf(HEADER_TEMPLATE_S, "CW_FW_NAME", CW_FW_NAME);
     client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", CLOCKFACE_NAME);
+    // Device IP address — useful for status display
+    client.printf(HEADER_TEMPLATE_S, "wifiIP", WiFi.localIP().toString().c_str());
     client.println();
   }
   

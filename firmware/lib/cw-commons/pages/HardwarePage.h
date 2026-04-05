@@ -78,8 +78,8 @@ inline void cw_sendHardwarePage(WiFiClient& client) {
   <div class="section">
     <div class="section-title">Actions</div>
     <div class="footer">
-      <button class="btn btn-primary" onclick="saveHw()">Save</button>
-      <button class="btn btn-danger" onclick="restart()">Reboot</button>
+      <button class="btn btn-primary" onclick="saveHw()">Apply</button>
+      <button class="btn btn-danger" onclick="if(confirm('Reboot device?'))restart()">Reboot</button>
     </div>
   </div>
 
@@ -103,7 +103,7 @@ inline void cw_sendHardwarePage(WiFiClient& client) {
       await setKey('displayRotation', $('displayRotation').value);
       await setKey('E_pin', $('E_pin').value);
       await setKey('ldrPin', $('ldrPin').value);
-      toast('Saved — reboot to apply');
+      toast('Applied ✓');
     } catch(e){ toast('Save failed', false); }
   }
   </script>
