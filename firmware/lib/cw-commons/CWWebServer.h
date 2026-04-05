@@ -4,6 +4,16 @@
 #include <CWPreferences.h>
 #include <CWOTA.h>
 #include "StatusController.h"
+
+// New multi-page UI
+#include "CWWebUI.h"
+#include "pages/HomePage.h"
+#include "pages/ClockPage.h"
+#include "pages/SyncPage.h"
+#include "pages/HardwarePage.h"
+#include "pages/UpdatePage.h"
+
+// Legacy single-page UI (kept temporarily)
 #include "SettingsWebPage.h"
 
 #include "esp_ota_ops.h"
@@ -79,7 +89,9 @@ struct ClockwiseWebServer
     // Only done for /ota/upload — all other routes skip the body.
     if (method == "POST" && path == "/ota/upload") {
       int contentLength = 0;
-      // Drain remaining headers, extract Content-Length
+      bool expectContinue = false;
+
+      // Drain remaining headers, extract Content-Length and handle Expect: 100-continue
       client.setTimeout(200);
       unsigned long hdr_deadline = millis() + 2000;
       while (client.connected() && millis() < hdr_deadline) {
@@ -89,8 +101,17 @@ struct ClockwiseWebServer
         String lower = line; lower.toLowerCase();
         if (lower.startsWith("content-length:")) {
           contentLength = line.substring(15).toInt();
+        } else if (lower.startsWith("expect:")) {
+          // curl sends this automatically for large uploads; reply 100 Continue so it actually sends the body.
+          if (lower.indexOf("100-continue") >= 0) expectContinue = true;
         }
       }
+
+      if (expectContinue) {
+        client.print("HTTP/1.1 100 Continue\r\n\r\n");
+        client.flush();
+      }
+
       handleOtaUpload(client, contentLength);
       return;
     }
@@ -236,6 +257,31 @@ struct ClockwiseWebServer
       client.println("HTTP/1.0 200 OK");
       client.println("Content-Type: text/html");
       client.println();
+      cw_sendHomePage(client);
+    } else if (method == "GET" && path == "/clock") {
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: text/html");
+      client.println();
+      cw_sendClockPage(client);
+    } else if (method == "GET" && path == "/sync") {
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: text/html");
+      client.println();
+      cw_sendSyncPage(client);
+    } else if (method == "GET" && path == "/hardware") {
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: text/html");
+      client.println();
+      cw_sendHardwarePage(client);
+    } else if (method == "GET" && path == "/update") {
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: text/html");
+      client.println();
+      cw_sendUpdatePage(client);
+    } else if (method == "GET" && path == "/legacy") {
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: text/html");
+      client.println();
       client.println(SETTINGS_PAGE);
     } else if (method == "GET" && path == "/get") {
       getCurrentSettings(client);
@@ -268,6 +314,13 @@ struct ClockwiseWebServer
       force_restart = true;
     } else if (method == "POST" && path == "/set") {
       ClockwiseParams::getInstance()->load();
+      // URL-decode value (browser sends e.g. Europe%2FStockholm)
+      value.replace("%2F", "/");
+      value.replace("%3A", ":");
+      value.replace("%20", " ");
+      value.replace("%40", "@");
+      value.replace("%2B", "+");
+      value.replace("%2C", ",");
       //a baby seal has died due this ifs
       if (key == ClockwiseParams::getInstance()->PREF_DISPLAY_BRIGHT) {
         ClockwiseParams::getInstance()->displayBright = value.toInt();
@@ -481,6 +534,8 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_S, "CW_FW_VERSION", CW_FW_VERSION);
     client.printf(HEADER_TEMPLATE_S, "CW_FW_NAME", CW_FW_NAME);
     client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", CLOCKFACE_NAME);
+    // Device IP address — useful for status display
+    client.printf(HEADER_TEMPLATE_S, "wifiIP", WiFi.localIP().toString().c_str());
     client.println();
   }
   
