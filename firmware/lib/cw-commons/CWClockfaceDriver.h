@@ -27,8 +27,12 @@
  *       Drivers must handle being called setup() → teardown() → setup() repeatedly.
  */
 
-#include <Adafruit_GFX.h>
+#include <Arduino.h>
 #include "CWDateTime.h"
+
+// Forward-declare Adafruit_GFX to avoid pulling in the full header here
+// (cw-commons depends on Adafruit-GFX-Library which provides it at link time)
+class Adafruit_GFX;
 
 // ─── Driver descriptor ───────────────────────────────────────────────────────
 
