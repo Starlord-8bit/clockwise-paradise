@@ -24,6 +24,7 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
   <div class="w3-bar w3-black w3-medium">
     <div id="fw-version" class="w3-bar-item w3-black w3-hover-red"></div>
     <div id="ssid" class="w3-bar-item w3-hover-blue w3-right"></div>
+    <div class="w3-bar-item w3-button w3-hover-green w3-right" onclick="checkUpdate()"><i class='fa fa-refresh'></i> Check Update</div>
     <div class="w3-bar-item w3-button w3-hover-yellow w3-right" onclick="restartDevice();"><i class='fa fa-power-off'></i> Restart</div>
     <div id="status" class="w3-bar-item w3-green" style="display:none"><i class='fa fa-floppy-o'></i> Saved! Restart your device</div>
   </div>
@@ -294,6 +295,28 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
       });  
     }
 
+    function checkUpdate() {
+      document.getElementById('status').style.display = 'block';
+      document.getElementById('status').innerHTML = "<i class='fa fa-spinner fa-spin'></i> Checking...";
+      fetch('/ota/check').then(r => r.json()).then(data => {
+        if (data.available) {
+          if (confirm('Update available: ' + data.latest + '\nCurrent: ' + data.current + '\n\nFlash now? (Device will reboot)')) {
+            document.getElementById('status').innerHTML = "<i class='fa fa-spinner fa-spin'></i> Updating...";
+            fetch('/ota/update', {method:'POST'}).then(() => {
+              document.getElementById('status').innerHTML = "Updating... reconnect in ~30s";
+            });
+          } else {
+            document.getElementById('status').style.display = 'none';
+          }
+        } else {
+          alert('Already up to date: ' + data.current);
+          document.getElementById('status').style.display = 'none';
+        }
+      }).catch(() => {
+        alert('Could not check for updates');
+        document.getElementById('status').style.display = 'none';
+      });
+    }
     function restartDevice() {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/restart');

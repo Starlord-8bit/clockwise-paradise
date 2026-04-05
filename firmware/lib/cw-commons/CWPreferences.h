@@ -49,6 +49,11 @@ struct ClockwiseParams
     const char* const PREF_BIGCLOCK_FILE   = "bigclockFile";
     // Uptime counter
     const char* const PREF_TOTAL_DAYS      = "totalDays";
+    // OTA
+    const char* const PREF_OTA_ENABLED    = "otaEnabled";
+    const char* const PREF_OTA_OWNER      = "otaOwner";
+    const char* const PREF_OTA_REPO       = "otaRepo";
+    const char* const PREF_OTA_ASSET      = "otaAsset";
 
     // LED colour order constants
     static const uint8_t LED_ORDER_RGB = 0;
@@ -98,6 +103,11 @@ struct ClockwiseParams
     String   bigclockFile;
     // Uptime
     uint32_t totalDays;
+    // OTA
+    bool     otaEnabled;
+    String   otaOwner;
+    String   otaRepo;
+    String   otaAssetName;
 
     ClockwiseParams() {
         preferences.begin("clockwise", false);
@@ -143,6 +153,10 @@ struct ClockwiseParams
         preferences.putString(PREF_BIGCLOCK_SERVER, bigclockServer);
         preferences.putString(PREF_BIGCLOCK_FILE, bigclockFile);
         preferences.putUInt(PREF_TOTAL_DAYS, totalDays);
+        preferences.putBool(PREF_OTA_ENABLED, otaEnabled);
+        preferences.putString(PREF_OTA_OWNER, otaOwner);
+        preferences.putString(PREF_OTA_REPO, otaRepo);
+        preferences.putString(PREF_OTA_ASSET, otaAssetName);
     }
 
     void load()
@@ -185,5 +199,9 @@ struct ClockwiseParams
         bigclockServer = preferences.getString(PREF_BIGCLOCK_SERVER, "raw.githubusercontent.com");
         bigclockFile   = preferences.getString(PREF_BIGCLOCK_FILE, "Starlord-8bit/clockwise-paradise/main/clockfaces/bigclock");
         totalDays     = preferences.getUInt(PREF_TOTAL_DAYS, 0);
+        otaEnabled    = preferences.getBool(PREF_OTA_ENABLED, true);
+        otaOwner      = preferences.getString(PREF_OTA_OWNER, "Starlord-8bit");
+        otaRepo       = preferences.getString(PREF_OTA_REPO, "clockwise-paradise");
+        otaAssetName  = preferences.getString(PREF_OTA_ASSET, "clockwise-paradise.bin");
     }
 };

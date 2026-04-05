@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <CWPreferences.h>
+#include <CWOTA.h>
 #include "StatusController.h"
 #include "SettingsWebPage.h"
 
@@ -94,6 +95,22 @@ struct ClockwiseWebServer
       if (key == "pin") {
         readPin(client, key, value.toInt());
       }
+    } else if (method == "GET" && path == "/ota/check") {
+      String result = CWOTA::getInstance()->checkOnly();
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: application/json");
+      client.println();
+      client.print(result);
+    } else if (method == "POST" && path == "/ota/update") {
+      // Respond first, then start OTA (device will reboot on success)
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: application/json");
+      client.println();
+      client.print("{\"status\":\"updating\",\"message\":\"OTA started - device will reboot\"}");
+      client.flush();
+      client.stop();
+      CWOTA::getInstance()->checkAndUpdate();
+      return;
     } else if (method == "POST" && path == "/restart") {
       client.println("HTTP/1.0 204 No Content");
       force_restart = true;
