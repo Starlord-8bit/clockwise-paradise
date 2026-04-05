@@ -47,7 +47,8 @@ struct CWClockfaceDriver {
 
 
 // ─── Forward declarations for all built-in drivers ──────────────────────────
-// These are defined in the cw-cf-0xNN submodule driver files.
+// Defined in cw-cf-0xNN/cf0N_driver.cpp. Declared here for CWClockfaceRegistry.cpp.
+// (Do NOT include this in cw-commons — the symbols live in the clockface components.)
 
 extern CWClockfaceDriver cf_mario;       // index 0 — cw-cf-0x01
 extern CWClockfaceDriver cf_words;       // index 1 — cw-cf-0x02
@@ -104,5 +105,5 @@ struct CWDriverRegistry {
     }
 };
 
-// Registry definition — in CWClockfaceDriver.cpp
-// (declared here, defined once in a .cpp to avoid multiple-definition errors)
+// Registry definition — in main/CWClockfaceRegistry.cpp
+// (declared here, defined in main to ensure all component symbols are visible at link time)

@@ -1,6 +1,8 @@
+// CWClockfaceRegistry.cpp — lives in main/ (links last, sees all components)
+// Do not put this in cw-commons — the cf_XXX symbols are in cw-cf-0xNN components.
+
 #include "CWClockfaceDriver.h"
 
-// Registry array — order must match index values in each driver
 const CWClockfaceDriver* CWDriverRegistry::REGISTRY[CWDriverRegistry::COUNT] = {
     &cf_mario,        // 0
     &cf_words,        // 1
