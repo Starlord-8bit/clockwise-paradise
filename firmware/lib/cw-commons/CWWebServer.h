@@ -166,6 +166,18 @@ struct ClockwiseWebServer
         ClockwiseParams::getInstance()->E_pin = value.toInt();
       } else if (key == ClockwiseParams::getInstance()->PREF_AUTO_CHANGE) {
         ClockwiseParams::getInstance()->autoChange = value.toInt();
+      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_ENABLED) {
+        ClockwiseParams::getInstance()->mqttEnabled = (value == "1");
+      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_BROKER) {
+        ClockwiseParams::getInstance()->mqttBroker = value;
+      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_PORT) {
+        ClockwiseParams::getInstance()->mqttPort = value.toInt();
+      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_USER) {
+        ClockwiseParams::getInstance()->mqttUser = value;
+      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_PASS) {
+        ClockwiseParams::getInstance()->mqttPass = value;
+      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_PREFIX) {
+        ClockwiseParams::getInstance()->mqttPrefix = value;
       } else if (key == "clockFaceIndex") {
         // dispatcher index (0-based) maps to clockface
         ClockwiseParams::getInstance()->autoChange = ClockwiseParams::getInstance()->autoChange; // no-op stub
@@ -248,6 +260,10 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_BIGCLOCK_SERVER, ClockwiseParams::getInstance()->bigclockServer.c_str());
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_BIGCLOCK_FILE, ClockwiseParams::getInstance()->bigclockFile.c_str());
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_TOTAL_DAYS, ClockwiseParams::getInstance()->totalDays);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_MQTT_ENABLED, ClockwiseParams::getInstance()->mqttEnabled);
+    client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_MQTT_BROKER, ClockwiseParams::getInstance()->mqttBroker.c_str());
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_MQTT_PORT, ClockwiseParams::getInstance()->mqttPort);
+    client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_MQTT_PREFIX, ClockwiseParams::getInstance()->mqttPrefix.c_str());
 
     client.printf(HEADER_TEMPLATE_S, "CW_FW_VERSION", CW_FW_VERSION);
     client.printf(HEADER_TEMPLATE_S, "CW_FW_NAME", CW_FW_NAME);

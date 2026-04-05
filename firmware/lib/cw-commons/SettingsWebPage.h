@@ -178,6 +178,23 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
           exclusive: "cw-cf-0x07"
         },
         {
+          title: "MQTT",
+          description: "Connect to an MQTT broker for Home Assistant integration. Publishes state every 30s. Commands: set/brightness, set/nightMode, set/clockface, restart.",
+          formInput: "Enable: <input class='w3-check' type='checkbox' id='mqttEnabled' " + (settings.mqttenabled == '1' ? "checked" : "") + "><br/>Broker: <input id='mqttBroker' class='w3-input w3-light-grey' type='text' placeholder='your-mqtt-broker' value='" + settings.mqttbroker + "'><br/>Port: <input id='mqttPort' class='w3-input w3-light-grey' type='number' value='" + (settings.mqttport || 1883) + "'><br/>User: <input id='mqttUser' class='w3-input w3-light-grey' type='text' value='" + settings.mqttuser + "'><br/>Password: <input id='mqttPass' class='w3-input w3-light-grey' type='password' value='" + settings.mqttpass + "'><br/>Topic prefix: <input id='mqttPrefix' class='w3-input w3-light-grey' type='text' placeholder='clockwise' value='" + settings.mqttprefix + "'>",
+          icon: "fa-exchange",
+          save: "updatePreference('mqttEnabled', Number(mqttEnabled.checked)); updatePreference('mqttBroker', mqttBroker.value); updatePreference('mqttPort', mqttPort.value); updatePreference('mqttUser', mqttUser.value); updatePreference('mqttPass', mqttPass.value); updatePreference('mqttPrefix', mqttPrefix.value)",
+          property: "mqtt"
+        },
+        {
+          title: "Canvas Clockface Editor",
+          description: "Design your own Canvas clockface themes. Opens the web-based editor in a new tab. Save the JSON file and serve it from a local web server.",
+          formInput: "<a href='https://jnthas.github.io/cw-canvas-editor/' target='_blank' class='w3-button w3-blue'><i class='fa fa-paint-brush'></i> Open Canvas Editor</a>",
+          icon: "fa-paint-brush",
+          save: "",
+          property: "canvasEditor",
+          exclusive: "cw-cf-0x07"
+        },
+        {
           title: "Posix Timezone String",
           description: "To avoid remote lookups, provide a Posix string that corresponds to your timezone. Leave empty to obtain this automatically from the server. <a href=\"https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv\">Click here for a list.</a>",
           formInput: "<input id='posixString' class='w3-input w3-light-grey' name='posixString' type='text' placeholder='Manual Posix String' value='" + settings.manualposix + "'>",

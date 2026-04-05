@@ -3,7 +3,7 @@ set(CLOCKFACES cw-cf-0x01 cw-cf-0x02 cw-cf-0x03 cw-cf-0x04 cw-cf-0x05 cw-cf-0x06
 idf_component_register(
 			SRC_DIRS "."
 			INCLUDE_DIRS ${PROJECT_DIR}/firmware/src
-			PRIV_REQUIRES ESP32-HUB75-MatrixPanel-I2S-DMA cw-commons cw-gfx-engine WiFiManager Improv-WiFi-Library arduino Adafruit-GFX-Library esp_https_ota ${CLOCKFACES}
+			PRIV_REQUIRES ESP32-HUB75-MatrixPanel-I2S-DMA cw-commons cw-gfx-engine WiFiManager Improv-WiFi-Library arduino Adafruit-GFX-Library esp_https_ota mqtt ${CLOCKFACES}
                        )
 
 # Derive version from git tag at build time

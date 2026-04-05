@@ -9,6 +9,7 @@
 #include <CWPreferences.h>
 #include <CWWebServer.h>
 #include <StatusController.h>
+#include <CWMqtt.h>
 
 #define MIN_BRIGHT_DISPLAY_ON 4
 #define MIN_BRIGHT_DISPLAY_OFF 0
@@ -209,6 +210,7 @@ void setup()
     cwDateTime.begin(p->timeZone.c_str(), p->use24hFormat,
                      p->ntpServer.c_str(), p->manualPosix.c_str());
     clockface->setup(&cwDateTime);
+    CWMqtt::getInstance()->begin();  // start MQTT after WiFi + time sync
   }
 }
 
@@ -220,6 +222,7 @@ void loop()
     ClockwiseWebServer::getInstance()->handleHttpRequest();
     ezt::events();
     webServerWatchdog();
+    CWMqtt::getInstance()->loop();
   }
 
   if (wifi.connectionSucessfulOnce) {
