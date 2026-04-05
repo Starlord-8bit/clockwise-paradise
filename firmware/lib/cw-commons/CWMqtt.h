@@ -26,7 +26,6 @@
 #include <WiFi.h>
 #include <CWPreferences.h>
 #include <StatusController.h>
-#include <ArduinoJson.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -94,18 +93,14 @@ public:
         if (!_enabled || !_connected) return;
         auto* p = ClockwiseParams::getInstance();
 
-        StaticJsonDocument<256> doc;
-        doc["brightness"]  = p->displayBright;
-        doc["nightMode"]   = p->nightMode;
-        doc["nightLevel"]  = p->nightLevel;
-        doc["autoChange"]  = p->autoChange;
-        doc["clockface"]   = 1;  // TODO: dispatcher index when merged
-        doc["nightActive"] = false;  // TODO: from nightModeActive when exposed
-        doc["totalDays"]   = p->totalDays;
-        doc["version"]     = CW_FW_VERSION;
-
-        String payload;
-        serializeJson(doc, payload);
+        String payload = "{\"brightness\":" + String(p->displayBright)
+            + ",\"nightMode\":" + String(p->nightMode)
+            + ",\"nightLevel\":" + String(p->nightLevel)
+            + ",\"autoChange\":" + String(p->autoChange)
+            + ",\"clockface\":1"
+            + ",\"nightActive\":false"
+            + ",\"totalDays\":" + String(p->totalDays)
+            + ",\"version\":\"" + String(CW_FW_VERSION) + "\"}";
         String topic = _base_topic + "/state";
         esp_mqtt_client_publish(_client, topic.c_str(), payload.c_str(), 0, 1, 0);
     }
@@ -125,14 +120,11 @@ private:
 
         // Device info block (shared across all entities)
         // We build it once as a JSON fragment
-        StaticJsonDocument<256> dev;
-        dev["identifiers"][0] = _device_id;
-        dev["name"]           = "Clockwise Paradise";
-        dev["model"]          = "Clockwise Paradise";
-        dev["manufacturer"]   = "Starlord-8bit";
-        dev["sw_version"]     = CW_FW_VERSION;
-        String dev_str;
-        serializeJson(dev, dev_str);
+        String dev_str = "{\"identifiers\":[\"" + _device_id + "\"]"
+            ",\"name\":\"Clockwise Paradise\""
+            ",\"model\":\"Clockwise Paradise\""
+            ",\"manufacturer\":\"Starlord-8bit\""
+            ",\"sw_version\":\"" + String(CW_FW_VERSION) + "\"}";
 
         String avail  = _base_topic + "/availability";
         String state  = _base_topic + "/state";
