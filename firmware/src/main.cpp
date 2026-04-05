@@ -1,16 +1,9 @@
 #include <Arduino.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 
-// Runtime clockface dispatcher (enabled once namespaced forks are in place)
-// Set CW_DISPATCHER_ENABLED=1 in build flags when all forks are ready.
-#if CW_DISPATCHER_ENABLED
-  #include <CWClockfaceDispatcher.h>
-  IClockface *clockface = nullptr;
-#else
-  // Legacy: single compiled-in clockface
-  #include <Clockface.h>
-  Clockface *clockface = nullptr;
-#endif
+// v3 clockface driver registry (replaces v2 dispatcher + class hierarchy)
+#include <CWClockfaceDriver.h>
+static const CWClockfaceDriver* currentFace = nullptr;
 
 // Commons
 #include <WiFiController.h>
@@ -26,7 +19,7 @@
 #define ESP32_LED_BUILTIN 2
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
-// clockface pointer declared above in #if block
+// clockface pointer declared above
 WiFiController wifi;
 CWDateTime cwDateTime;
 
@@ -146,23 +139,13 @@ void nightModeCheck()
       dma_display->setBrightness8(bright);
       p->canvasServer = p->bigclockServer;
       p->canvasFile   = p->bigclockFile;
-#if CW_DISPATCHER_ENABLED
-      clockface = CWClockfaceDispatcher::create(p->clockFaceIndex, dma_display);
-#else
-      clockface = new Clockface(dma_display);
-#endif
-      if (wifi.connectionSucessfulOnce) clockface->setup(&cwDateTime);
+      CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
     }
   } else if (!inNight && nightModeActive) {
     nightModeActive = false;
     p->load();  // restore original canvas settings
     dma_display->setBrightness8(p->displayBright);
-#if CW_DISPATCHER_ENABLED
-    clockface = CWClockfaceDispatcher::create(p->clockFaceIndex, dma_display);
-#else
-    clockface = new Clockface(dma_display);
-#endif
-    if (wifi.connectionSucessfulOnce) clockface->setup(&cwDateTime);
+    CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
   }
 }
 
@@ -211,20 +194,16 @@ void setup()
   displaySetup(p->ledColorOrder, p->reversePhase, p->displayBright,
                p->displayRotation, p->driver, p->i2cSpeed, p->E_pin);
 
-#if CW_DISPATCHER_ENABLED
-  // Dispatcher: create the saved clockface by index
-  clockface = CWClockfaceDispatcher::create(p->clockFaceIndex, dma_display);
-  if (!clockface) clockface = CWClockfaceDispatcher::create(0, dma_display);
-  // Wire live-switch callback so /set?clockFaceIndex=N works without reboot
+  // v3: initialise from saved clockface index
+  CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
+
+  // Wire live-switch callback — instant, no reboot
   ClockwiseWebServer::getInstance()->onClockfaceSwitch = [](uint8_t idx) {
-    Serial.printf("[main] Live clockface switch -> index %d\n", idx);
-    clockface = CWClockfaceDispatcher::switchTo(clockface, idx, dma_display, &cwDateTime);
-    ClockwiseParams::getInstance()->clockFaceIndex = idx;
-    ClockwiseParams::getInstance()->save();
+    if (CWDriverRegistry::switchTo(&currentFace, idx, dma_display, &cwDateTime)) {
+      ClockwiseParams::getInstance()->clockFaceIndex = idx;
+      ClockwiseParams::getInstance()->save();
+    }
   };
-#else
-  clockface = new Clockface(dma_display);
-#endif
 
   // Fixed brightness: apply immediately
   if (p->brightMethod == 2) dma_display->setBrightness8(p->displayBright);
@@ -239,7 +218,8 @@ void setup()
     StatusController::getInstance()->ntpConnecting();
     cwDateTime.begin(p->timeZone.c_str(), p->use24hFormat,
                      p->ntpServer.c_str(), p->manualPosix.c_str());
-    clockface->setup(&cwDateTime);
+    // Re-run setup now that time is available
+    if (currentFace) currentFace->setup(dma_display, &cwDateTime);
     CWMqtt::getInstance()->begin();  // start MQTT after WiFi + time sync
   }
 }
@@ -256,7 +236,7 @@ void loop()
   }
 
   if (wifi.connectionSucessfulOnce) {
-    clockface->update();
+    if (currentFace) currentFace->update();
     uptimeCheck();
     autoChangeCheck();
   }
