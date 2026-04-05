@@ -35,7 +35,7 @@ jobs:
           command: idf.py build
 
       - name: Upload firmware artifact
-        if: github.ref == 'refs/heads/main'
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: clockwise-paradise-firmware
