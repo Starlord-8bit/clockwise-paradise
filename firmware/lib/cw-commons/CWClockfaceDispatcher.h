@@ -31,12 +31,13 @@
 #include <IClockface.h>
 
 // Include each namespaced clockface (component name = cw-cf-0xNN)
-#include <cw-cf-0x01/Clockface.h>
-#include <cw-cf-0x02/Clockface.h>
-#include <cw-cf-0x03/Clockface.h>
-#include <cw-cf-0x04/Clockface.h>
-#include <cw-cf-0x05/Clockface.h>
-#include <cw-cf-0x06/Clockface.h>
+// Files are named Clockface0N.h to avoid flat include path collisions in ESP-IDF
+#include <Clockface01.h>
+#include <Clockface02.h>
+#include <Clockface03.h>
+#include <Clockface04.h>
+#include <Clockface05.h>
+#include <Clockface06.h>
 // CF07 (Canvas) included separately — it needs canvasFile/canvasServer params
 
 struct CWClockfaceDispatcher {
