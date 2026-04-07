@@ -9,5 +9,12 @@ sdkconfig*
 
 # Ignore IDE configs
 .vscode
+.claude
+CLAUDE.md
 
 dependencies.lock
+
+.env
+
+# Session / scratch files
+diagnosis.md
