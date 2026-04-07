@@ -83,7 +83,15 @@ void displaySetup(uint8_t ledColorOrder, bool reversePhase, uint8_t displayBrigh
     mxconfig.i2sspeed = static_cast<HUB75_I2S_CFG::clk_speed>(i2cSpeed);
 
   dma_display = new MatrixPanel_I2S_DMA(mxconfig);
-  dma_display->begin();
+  if (!dma_display->begin()) {
+    // DMA init failed — blink indefinitely rather than crashing into null deref
+    // on setBrightness8/clearScreen. Typically caused by hardware fault or matrix
+    // connected during boot on SPI-interfering hardware configs.
+    while (true) {
+      digitalWrite(ESP32_LED_BUILTIN, HIGH); delay(100);
+      digitalWrite(ESP32_LED_BUILTIN, LOW);  delay(100);
+    }
+  }
   dma_display->setBrightness8(displayBright);
   dma_display->clearScreen();
   dma_display->setRotation(displayRotation);
@@ -113,8 +121,8 @@ void automaticBrightControl()
       dma_display->setBrightness8(mapBright);
       currentBrightSlot = mapLDR;
     }
-  } else if (method == 1) {
-    // Time-based
+  } else if (method == 1 && wifi.connectionSucessfulOnce) {
+    // Time-based — requires cwDateTime to be initialised (only after NTP sync)
     uint8_t targetBright = isNightTime() ? p->nightBright : p->displayBright;
     if (currentBrightSlot != targetBright) {
       dma_display->setBrightness8(targetBright);
@@ -127,6 +135,7 @@ void nightModeCheck()
 {
   auto* p = ClockwiseParams::getInstance();
   if (p->nightMode == 0) return;
+  if (!wifi.connectionSucessfulOnce) return;  // cwDateTime not initialised yet
 
   bool inNight = isNightTime();
 
