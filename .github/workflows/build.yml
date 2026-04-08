@@ -9,11 +9,43 @@ on:
     paths-ignore:
       - '**.md'
       - 'clockfaces/**'
+  workflow_dispatch:
 
 jobs:
+  # Run native unit tests first — firmware build is gated on these passing
+  test-native:
+    name: Native Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get install -y cmake ninja-build
+
+      - name: Check for native tests
+        id: check_tests
+        run: |
+          if [ -d "firmware/test/test_native" ] && [ -f "firmware/test/test_native/CMakeLists.txt" ]; then
+            echo "has_tests=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_tests=false" >> $GITHUB_OUTPUT
+            echo "No native tests found — skipping"
+          fi
+
+      - name: Build and run native tests
+        if: steps.check_tests.outputs.has_tests == 'true'
+        run: |
+          cd firmware/test/test_native
+          cmake -B build -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build
+          ./build/test_native
+
   build:
     name: ESP-IDF Build (${{ matrix.idf_version }})
     runs-on: ubuntu-latest
+    needs: test-native  # only runs if tests pass
 
     strategy:
       fail-fast: false
@@ -26,7 +58,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: 'recursive'
-          fetch-depth: 0  # needed for git describe --tags to find version
+          fetch-depth: 0  # needed for git describe --tags
+
+      - name: Get version
+        id: version
+        run: echo "tag=$(git describe --tags --always --dirty)" >> $GITHUB_OUTPUT
 
       - name: Build firmware
         uses: espressif/esp-idf-ci-action@v1
@@ -35,45 +71,17 @@ jobs:
           target: esp32
           command: idf.py build
 
+      - name: Rename firmware with version
+        run: cp build/clockwise-paradise.bin build/clockwise-paradise.${{ steps.version.outputs.tag }}.bin
+
       - name: Upload firmware artifact
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: clockwise-paradise-firmware
+          name: clockwise-paradise-${{ steps.version.outputs.tag }}
           path: |
-            build/clockwise-paradise.bin
+            build/clockwise-paradise.${{ steps.version.outputs.tag }}.bin
             build/bootloader/bootloader.bin
             build/partition_table/partition-table.bin
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
-
-  # Run native unit tests (no hardware needed)
-  test-native:
-    name: Native Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Install ESP-IDF dependencies
-        run: |
-          sudo apt-get install -y cmake ninja-build
-
-      - name: Check for native tests
-        id: check_tests
-        run: |
-          if [ -d "firmware/test/test_native" ] && [ -f "firmware/test/test_native/CMakeLists.txt" ]; then
-            echo "has_tests=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_tests=false" >> $GITHUB_OUTPUT
-            echo "No native tests directory found — skipping"
-          fi
-
-      - name: Build and run native tests
-        if: steps.check_tests.outputs.has_tests == 'true'
-        run: |
-          cd firmware/test/test_native
-          cmake -B build -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build
-          ./build/test_native

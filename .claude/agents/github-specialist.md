@@ -104,25 +104,42 @@ When the coordinator calls `/git-go-for-pr`:
    git log main..<branch> --oneline
    git diff main..<branch> --stat
    ```
-3. Create the PR using `gh`:
+3. Derive the PR title using **Conventional Commits** format.
+   This is critical — release-please reads the squash-merge commit title (which
+   defaults to the PR title) to determine the next version and build the changelog.
+
+   Format: `<type>(<optional scope>): <short description>`
+
+   | Type | When to use | Version impact |
+   |---|---|---|
+   | `feat:` | new user-facing feature | minor bump |
+   | `fix:` | bug fix | patch bump |
+   | `feat!:` | breaking change | major bump |
+   | `ci:` | CI/CD only | no release |
+   | `refactor:` | internal restructure | no release |
+   | `chore:` | maintenance | no release |
+   | `docs:` | documentation | no release |
+   | `test:` | tests only | no release |
+
+4. Create the PR using `gh`:
    ```bash
    gh pr create \
      --base main \
-     --title "<type>: <description>" \
+     --title "<conventional commit title>" \
      --body "$(cat <<'EOF'
    ## Summary
    - [bullet points from commit messages]
 
    ## Test plan
-   - [ ] Native tests pass (`pio test -e native`)
-   - [ ] OTA flash successful (`/flash`)
-   - [ ] Device health verified (`/diagnose`)
+   - [ ] Native tests pass
+   - [ ] OTA flash successful on device
+   - [ ] Device health verified post-flash
 
    🤖 Generated with [Claude Code](https://claude.com/claude-code)
    EOF
    )"
    ```
-4. Return the PR URL to the coordinator.
+5. Return the PR URL to the coordinator.
 
 ---
 
@@ -153,6 +170,15 @@ When the coordinator calls `/git-merge-pr`:
 When the coordinator calls `/git-go-for-release`:
 
 See the `/git-go-for-release` skill for the full release checklist.
+
+Releases are fully automated via release-please — do not manually create tags, edit
+CHANGELOG.md, or bump version strings. The pipeline is:
+
+  PR merged to main (with correct Conventional Commit title)
+    → release-please opens/updates Release PR
+    → Release PR merged
+    → release-please creates tag on main
+    → release.yml fires: native tests → ESP-IDF build → GitHub Release published
 
 ---
 

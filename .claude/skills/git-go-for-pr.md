@@ -34,29 +34,54 @@ gh pr checks 2>/dev/null || gh run list --branch $(git branch --show-current) --
 ```
 If CI is failing: warn the user and ask whether to proceed or fix CI first.
 
-5. Create the PR:
+5. Derive the PR title using Conventional Commits format.
+
+   **This is critical** — release-please reads the squash-merge commit title (which
+   defaults to the PR title) to determine the next version and build the changelog.
+   Getting the type wrong silently misclassifies the change.
+
+   | Branch prefix | Commit type | Version impact |
+   |---|---|---|
+   | `feature/` or `feat/` | `feat:` | minor bump |
+   | `fix/` | `fix:` | patch bump |
+   | `ci/` | `ci:` | no release |
+   | `refactor/` | `refactor:` | no release |
+   | `docs/` | `docs:` | no release |
+   | `chore/` | `chore:` | no release |
+
+   Format: `<type>(<optional scope>): <short description in imperative mood>`
+
+   Examples:
+   - `feat(ota): add rollback confirmation dialog`
+   - `fix(webui): brightness slider not persisting after reboot`
+   - `ci: add release-please workflow`
+
+   For breaking changes append `!` after the type: `feat!: replace clockface API`
+
+6. Create the PR:
 ```bash
 gh pr create \
   --base main \
-  --title "<derived from branch name and commits>" \
+  --title "<conventional commit title derived above>" \
   --body "$(cat <<'EOF'
 ## Summary
 - [bullet points from commit messages on this branch]
 
 ## Test plan
-- [ ] Native tests pass (`pio test -e native`)
-- [ ] OTA flash successful (`/flash`)
-- [ ] Device health verified (`/diagnose`)
+- [ ] Native tests pass
+- [ ] OTA flash successful on device
+- [ ] Device health verified post-flash
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
 
-6. Return the PR URL.
+7. Return the PR URL.
 
 ## Notes
 
-- PR title follows Conventional Commits format: `feat:`, `fix:`, `ci:`, etc.
 - Base branch is always `main` unless the coordinator specifies otherwise.
 - Do not create a PR if CI is red unless the user explicitly confirms.
+- The PR template in `.github/PULL_REQUEST_TEMPLATE.md` shows contributors the same
+  format — keep it in sync with this skill if the convention changes.

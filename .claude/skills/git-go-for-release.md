@@ -1,105 +1,89 @@
 ---
-description: Walk through the full release checklist: version bump, CHANGELOG update, tag creation, and GitHub release. Use /git-go-for-release when main is in a releasable state and a new version needs to be published.
+description: Trigger or monitor the release pipeline for Clockwise Paradise. The normal path is merging the release-please PR — release-please handles versioning, tagging, and changelog automatically. Use /git-go-for-release to check release readiness or kick off an emergency manual release.
 ---
 
 Cut a new Clockwise Paradise release.
 
-## Steps
+## How releases work
 
-### 1 — Confirm you are on main and it is clean
+Releases are fully automated via release-please:
+
+1. PRs are merged to `main` with Conventional Commit titles (`feat:`, `fix:`, etc.)
+2. release-please opens/updates a **Release PR** on every push to main, accumulating
+   changes and proposing the next version bump
+3. When the Release PR is merged → release-please creates the git tag on main
+4. The tag push triggers `release.yml` → native tests → ESP-IDF build → GitHub Release published
+
+**The only human action required is merging the Release PR.**
+
+---
+
+## Normal path — merge the Release PR
+
+### 1 — Check for an open release-please PR
 ```bash
-git checkout main && git pull origin main
-git status
+gh pr list --label "autorelease: pending" --base main
 ```
-If not clean: stop. All changes must be committed and merged before releasing.
+If none exists: there are no releasable changes on main since the last release.
+Report this to the user and stop.
 
-### 2 — Determine the new version
-
-Ask the user for the version number if not provided. Use semantic versioning:
-- **patch** (x.y.Z): bug fixes only
-- **minor** (x.Y.0): new features, backwards compatible
-- **major** (X.0.0): breaking changes
-
-Current version is in `firmware/platformio.ini` under `build_flags`:
+### 2 — Review the proposed release
 ```bash
-grep "CW_FW_VERSION" firmware/platformio.ini
+gh pr view <pr-number>
 ```
+Confirm the proposed version bump and changelog look correct.
+If the version bump seems wrong, check whether the PR titles on recent commits used the
+right Conventional Commit types.
 
-### 3 — Update version strings
-
-Update in `firmware/platformio.ini`:
-```
--D CW_FW_VERSION="<old>"
-+D CW_FW_VERSION="<new>"
-```
-
-Verify no other hardcoded version strings need updating:
+### 3 — Confirm CI is green on main
 ```bash
-grep -rn "CW_FW_VERSION\|v[0-9]\+\.[0-9]\+\.[0-9]\+" --include="*.ini" --include="*.cmake" --include="CMakeLists.txt" .
+gh run list --branch main --limit 5
 ```
+If any build or test run is failing: do not merge. Report to the user.
 
-### 4 — Update CHANGELOG.md
-
-Add a new section at the top of `CHANGELOG.md`:
-```markdown
-## [vX.Y.Z] — YYYY-MM-DD
-
-### Added
-- ...
-
-### Fixed
-- ...
-
-### Changed
-- ...
-```
-
-Pull the entries from `git log <previous-tag>..HEAD --oneline`.
-
-### 5 — Commit the release prep
+### 4 — Merge the Release PR
 ```bash
-git add firmware/platformio.ini CHANGELOG.md
-git commit -m "chore: bump version to vX.Y.Z
-
-Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
-git push origin main
+gh pr merge <pr-number> --squash --delete-branch
 ```
 
-### 6 — Confirm CI is green on main
+### 5 — Monitor the release pipeline
 ```bash
-gh run list --branch main --limit 3
+gh run list --branch main --limit 5
 ```
-Wait for the build workflow to pass before tagging.
-
-### 7 — Create and push the tag
+Wait for `release.yml` to complete. Verify the GitHub Release was created:
 ```bash
-git tag -a vX.Y.Z -m "Release vX.Y.Z"
-git push origin vX.Y.Z
+gh release list --limit 3
 ```
 
-### 8 — Create GitHub Release
-```bash
-gh release create vX.Y.Z \
-  --title "Clockwise Paradise vX.Y.Z" \
-  --notes "$(sed -n '/## \[vX.Y.Z\]/,/## \[/p' CHANGELOG.md | head -n -1)"
-```
-
-The CI `clockwise-ci.yml` workflow will trigger on the tag and build clockface artifacts
-for the release. Verify it completes:
-```bash
-gh run list --limit 5
-```
-
-### 9 — Report
-
+### 6 — Report back
 Return to the user:
-- Tag: `vX.Y.Z`
-- GitHub Release URL
-- CI run URL for the artifact build
+- Version released
+- GitHub Release URL (`gh release view <tag> --web`)
+
+---
+
+## Emergency path — manual release from an existing tag
+
+Only use this if the automated pipeline failed after a tag was already created and you
+need to re-run the release job without re-tagging.
+
+```bash
+gh workflow run release.yml \
+  --field tag=<existing-tag> \
+  --field prerelease=false
+```
+
+Monitor:
+```bash
+gh run list --workflow=release.yml --limit 3
+```
+
+---
 
 ## Notes
 
-- Never tag a commit that CI has not validated.
-- If the tag push triggers a failing workflow: do not delete the tag silently. Report to
-  the user and diagnose the failure.
-- Patch releases should not introduce new NVS keys (would require migration for existing devices).
+- Never manually create tags or push them — release-please owns tagging.
+- Never manually edit `CHANGELOG.md` or version files — release-please manages these.
+- If the proposed version bump is wrong, the fix is in the PR titles, not in this skill.
+  Conventional Commit types determine the bump: `feat` → minor, `fix` → patch, `feat!` → major.
+- Patch releases should not introduce new NVS keys (would require migration on existing devices).
