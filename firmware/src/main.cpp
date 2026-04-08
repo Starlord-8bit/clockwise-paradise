@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include "esp_log.h"
+#include "esp_ota_ops.h"
 
 // v3 clockface driver registry (replaces v2 dispatcher + class hierarchy)
 #include <CWClockfaceDriver.h>
@@ -222,6 +224,15 @@ void setup()
     CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
     CWMqtt::getInstance()->begin();  // start MQTT after WiFi + time sync
   }
+
+  // OTA rollback guard: firmware reached end of setup() without crashing — mark as valid.
+  // With CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE, a freshly OTA'd partition starts in
+  // PENDING_VERIFY state. Any crash before this call leaves it pending; the bootloader
+  // then rolls back to the previous partition on the next boot. Calling this here means:
+  // "display initialised, WiFi attempted, critical tasks started — firmware is healthy."
+  // Safe to call unconditionally: no-op when partition is already VALID (non-OTA boots).
+  esp_ota_mark_app_valid_cancel_rollback();
+  ESP_LOGI("OTA", "Firmware marked valid — rollback window closed");
 }
 
 void loop()

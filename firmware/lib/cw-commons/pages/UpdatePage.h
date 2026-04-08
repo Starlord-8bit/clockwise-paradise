@@ -31,6 +31,20 @@ inline void cw_sendUpdatePage(WiFiClient& client) {
   </div>
 
   <div class="section">
+    <div class="section-title">Partition Status</div>
+    <div class="row"><label>Running slot</label><div class="ctrl"><span id="ota-slot">…</span></div></div>
+    <div class="row"><label>Partition state</label><div class="ctrl"><span id="ota-state">…</span></div></div>
+    <div class="row"><label>Other slot</label><div class="ctrl"><span id="ota-other">…</span></div></div>
+    <div class="row">
+      <label>Rollback to other slot</label>
+      <div class="ctrl">
+        <button class="btn btn-danger btn-block" id="btn-rollback" onclick="rollback()" disabled>Roll back</button>
+        <div class="hint">Boots the inactive partition. Only available when the other slot holds a valid image.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
     <div class="section-title">Actions</div>
     <div class="footer">
       <button class="btn btn-danger" onclick="restart()">Reboot</button>
@@ -38,7 +52,23 @@ inline void cw_sendUpdatePage(WiFiClient& client) {
   </div>
 
   <script>
-  function onSettingsLoaded(h){ $('ver').textContent = 'v'+(h['cw_fw_version']||'?'); }
+  function onSettingsLoaded(h){ $('ver').textContent = 'v'+(h['cw_fw_version']||'?'); loadOtaStatus(); }
+
+  function loadOtaStatus(){
+    fetch('/ota/status').then(r=>r.json()).then(s=>{
+      $('ota-slot').textContent  = s.running_partition + ' (v' + s.running_version + ')';
+      $('ota-state').textContent = s.running_state;
+      $('ota-state').style.color = s.running_state === 'valid' ? 'var(--accent)' :
+                                   s.running_state === 'pending' ? '#f0a500' : '#e05050';
+      if(s.other_valid){
+        $('ota-other').textContent = s.other_partition + ' (v' + s.other_version + ') — valid image';
+        $('btn-rollback').disabled = false;
+      } else {
+        $('ota-other').textContent = s.other_partition + ' — no image';
+        $('btn-rollback').disabled = true;
+      }
+    }).catch(()=>{ $('ota-slot').textContent='unavailable'; });
+  }
 
   function checkUpdate(){
     toast('Checking…');
@@ -67,6 +97,16 @@ inline void cw_sendUpdatePage(WiFiClient& client) {
     }).catch(()=>{
       // device may reboot mid-response
       $('upStatus').textContent='Rebooting… reconnect in ~15s';
+    });
+  }
+
+  function rollback(){
+    if(!confirm('Roll back to the other OTA partition?\nThe device will reboot.')) return;
+    fetch('/ota/rollback',{method:'POST'}).then(r=>r.json()).then(j=>{
+      if(j.status==='ok') toast('Rolling back… reconnect in ~15s');
+      else toast('Rollback failed: '+(j.message||''), false);
+    }).catch(()=>{
+      toast('Rebooting to other partition… reconnect in ~15s');
     });
   }
   </script>
