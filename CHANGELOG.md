@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [3.1.0](https://github.com/Starlord-8bit/clockwise-paradise/compare/v3.0.0...v3.1.0) (2026-04-09)
+
+
+### Features
+
+* **ota:** automatic rollback guard — device cannot be bricked by OTA ([9ddc1ae](https://github.com/Starlord-8bit/clockwise-paradise/commit/9ddc1ae557ff8a44ccd3058c97fe12dc19dc652d))
+* **ota:** automatic rollback guard — device cannot be bricked by OTA ([9ddc1ae](https://github.com/Starlord-8bit/clockwise-paradise/commit/9ddc1ae557ff8a44ccd3058c97fe12dc19dc652d))
+* **ota:** automatic rollback guard — device cannot be bricked by OTA ([288acb5](https://github.com/Starlord-8bit/clockwise-paradise/commit/288acb590a91df4988618500a0b57ed6a3c3c32f))
+
+
+### Bug Fixes
+
+* **ci:** release workflow — checkout main before tag exists, create tag after build ([88cda95](https://github.com/Starlord-8bit/clockwise-paradise/commit/88cda952104aee48d7065781272bdefa4cfd81d5))
+* define CWDriverRegistry::REGISTRY — null deref bootloop after DMA setup ([#21](https://github.com/Starlord-8bit/clockwise-paradise/issues/21)) ([ad88b44](https://github.com/Starlord-8bit/clockwise-paradise/commit/ad88b44c97ae8688ba9855acddd22bcf2fcdfa60))
+* guard DMA begin() failure and cwDateTime access before NTP sync ([d263568](https://github.com/Starlord-8bit/clockwise-paradise/commit/d26356840e4b5ea3a9805f24caa5f53878a47c27))
+* overhaul CI/CD — release-please automation, remove legacy workflows ([#20](https://github.com/Starlord-8bit/clockwise-paradise/issues/20)) ([0e36f99](https://github.com/Starlord-8bit/clockwise-paradise/commit/0e36f9900241b1ba7c0fc0c7dd56fc26ca8b887b))
+* register dma_display with Locator before first StatusController call ([#23](https://github.com/Starlord-8bit/clockwise-paradise/issues/23)) ([1d0408f](https://github.com/Starlord-8bit/clockwise-paradise/commit/1d0408f5be369717e7c43cf0e24732c398e54559))
+* **test:** add missing CMakeLists.txt for native test build ([b033690](https://github.com/Starlord-8bit/clockwise-paradise/commit/b0336903983bd7526c7e8e69f6a156d76e25d20d))
+
 ## [Unreleased]
 
 ### Changed
