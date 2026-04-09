@@ -69,10 +69,9 @@ jobs:
         with:
           esp_idf_version: ${{ matrix.idf_version }}
           target: esp32
-          command: idf.py build
-
-      - name: Rename firmware with version
-        run: cp build/clockwise-paradise.bin build/clockwise-paradise.${{ steps.version.outputs.tag }}.bin
+          # Rename inside the container — build/ is root-owned by the Docker action
+          # so steps outside the container cannot write to it
+          command: idf.py build && cp build/clockwise-paradise.bin build/clockwise-paradise.${{ steps.version.outputs.tag }}.bin
 
       - name: Upload firmware artifact
         if: success()

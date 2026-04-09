@@ -59,14 +59,13 @@ jobs:
         with:
           esp_idf_version: v4.4.7
           target: esp32
-          command: idf.py build
-
-      - name: Stage release assets
-        run: |
-          mkdir -p release-assets
-          cp build/clockwise-paradise.bin release-assets/clockwise-paradise.${{ steps.tag.outputs.name }}.bin
-          cp build/bootloader/bootloader.bin release-assets/bootloader.bin
-          cp build/partition_table/partition-table.bin release-assets/partition-table.bin
+          # Stage assets inside the container — build/ is root-owned by the Docker action
+          command: >-
+            idf.py build &&
+            mkdir -p release-assets &&
+            cp build/clockwise-paradise.bin release-assets/clockwise-paradise.${{ steps.tag.outputs.name }}.bin &&
+            cp build/bootloader/bootloader.bin release-assets/bootloader.bin &&
+            cp build/partition_table/partition-table.bin release-assets/partition-table.bin
 
       - name: Publish release
         env:
