@@ -13,6 +13,7 @@ static const CWClockfaceDriver* currentFace = nullptr;
 #include <CWPreferences.h>
 #include <CWWebServer.h>
 #include <StatusController.h>
+#include <Locator.h>
 #include <CWMqtt.h>
 
 #define MIN_BRIGHT_DISPLAY_ON 4
@@ -204,6 +205,11 @@ void setup()
 
   displaySetup(p->ledColorOrder, p->reversePhase, p->displayBright,
                p->displayRotation, p->driver, p->i2cSpeed, p->E_pin);
+
+  // Register display with Locator so StatusController (and any other lib) can reach it.
+  // Must happen before clockwiseLogo() — Locator::_display starts null; any call before
+  // this line crashes with LoadProhibited (EXCVADDR=0x00000000).
+  Locator::provide(dma_display);
 
   // v3: note target clockface — setup() called after cwDateTime is ready
   CWDriverRegistry::get(p->clockFaceIndex); // validate index early
