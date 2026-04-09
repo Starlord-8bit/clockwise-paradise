@@ -180,6 +180,10 @@ CHANGELOG.md, or bump version strings. The pipeline is:
     → release-please creates tag on main
     → release.yml fires: native tests → ESP-IDF build → GitHub Release published
 
+For manual releases via workflow_dispatch: supply the desired tag (e.g. v2.6.0) as
+input — do NOT pre-create the tag. release.yml creates and pushes the tag itself after
+a successful build. Pre-creating the tag will cause the workflow to fail.
+
 ---
 
 ## What You Do NOT Do

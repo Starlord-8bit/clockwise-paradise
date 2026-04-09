@@ -62,27 +62,42 @@ Return to the user:
 
 ---
 
-## Emergency path — manual release from an existing tag
+## Manual release path — workflow_dispatch
 
-Only use this if the automated pipeline failed after a tag was already created and you
-need to re-run the release job without re-tagging.
+Use this when you want to cut a release directly from main without going through the
+release-please Release PR flow (e.g. urgent hotfix, or release-please not yet set up).
+
+**Do NOT pre-create the tag.** `release.yml` creates and pushes the tag itself after
+the build succeeds. If the tag already exists the workflow will fail at the tag step.
 
 ```bash
 gh workflow run release.yml \
-  --field tag=<existing-tag> \
+  --repo Starlord-8bit/clockwise-paradise \
+  --field tag=vX.Y.Z \
   --field prerelease=false
 ```
 
+The workflow will:
+1. Check out main
+2. Run native tests
+3. Build firmware inside the ESP-IDF Docker container
+4. Create and push the tag `vX.Y.Z` on main
+5. Publish the GitHub Release with versioned `.bin` assets
+
 Monitor:
 ```bash
-gh run list --workflow=release.yml --limit 3
+gh run list --workflow=release.yml --repo Starlord-8bit/clockwise-paradise --limit 3
 ```
 
 ---
 
 ## Notes
 
-- Never manually create tags or push them — release-please owns tagging.
+- Never manually create tags before triggering `release.yml` via workflow_dispatch —
+  the workflow creates the tag after a successful build. Pre-creating it will cause
+  the workflow to fail.
+- On the automated path (push:tags from release-please), the tag already exists and
+  the workflow skips tag creation — these are two different code paths.
 - Never manually edit `CHANGELOG.md` or version files — release-please manages these.
 - If the proposed version bump is wrong, the fix is in the PR titles, not in this skill.
   Conventional Commit types determine the bump: `feat` → minor, `fix` → patch, `feat!` → major.
