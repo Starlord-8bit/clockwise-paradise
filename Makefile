@@ -34,12 +34,10 @@ test:
 ## Build firmware via Docker — mirrors CI exactly
 ## Compile artifacts → build/compile/  |  Firmware binaries → build/$(VERSION)/
 ## Override IDF version: make build IDF_VERSION=v4.4.7
-## Note: if the build fails with HOME/permission errors, remove --user from the docker run line
 build:
 	docker run --rm \
 	  -v "$(CURDIR)":/project \
 	  -w /project \
-	  --user "$$(id -u):$$(id -g)" \
 	  espressif/idf:$(IDF_VERSION) \
 	  idf.py -B $(BUILD_DIR) build
 	mkdir -p $(DIST_DIR)
@@ -85,8 +83,10 @@ test-hw: build
 	  $(if $(PORT),--port "$(PORT)",)
 
 ## Remove compile artifacts and the current version's dist folder
+## (build/compile is Docker root-owned — uses sudo if plain rm fails)
 clean:
-	rm -rf $(BUILD_DIR) $(DIST_DIR)
+	rm -rf $(DIST_DIR)
+	rm -rf $(BUILD_DIR) 2>/dev/null || sudo rm -rf $(BUILD_DIR)
 
 help:
 	@echo ""
