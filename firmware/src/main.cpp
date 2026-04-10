@@ -165,11 +165,25 @@ void autoChangeCheck()
 {
   auto* p = ClockwiseParams::getInstance();
   if (p->autoChange == ClockwiseParams::AUTO_CHANGE_OFF) return;
-  // NOTE: full auto-change requires the multi-clockface dispatcher (feature/clockface-dispatcher).
-  // This stub saves the day counter for when dispatcher is merged.
+  if (!wifi.connectionSucessfulOnce) return;
+
   int today = cwDateTime.getDay();
   if (lastAutoChangeDay == -1) { lastAutoChangeDay = today; return; }
-  if (today != lastAutoChangeDay) lastAutoChangeDay = today;
+  if (today != lastAutoChangeDay) {
+    lastAutoChangeDay = today;
+    uint8_t next;
+    if (p->autoChange == ClockwiseParams::AUTO_CHANGE_SEQUENCE) {
+      next = (p->clockFaceIndex + 1) % CWDriverRegistry::COUNT;
+    } else {
+      next = random(CWDriverRegistry::COUNT);
+      if (next == p->clockFaceIndex) next = (next + 1) % CWDriverRegistry::COUNT;
+    }
+    if (CWDriverRegistry::switchTo(&currentFace, next, dma_display, &cwDateTime)) {
+      p->clockFaceIndex = next;
+      p->save();
+      ESP_LOGI("AUTO", "Day changed — switched to clockface %d", next);
+    }
+  }
 }
 
 void uptimeCheck()
@@ -250,6 +264,18 @@ void setup()
     CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
     CWMqtt::getInstance()->begin();  // start MQTT after WiFi + time sync
   }
+
+  // Wire MQTT callbacks — same runtime behaviour as web UI
+  CWMqtt::getInstance()->onClockfaceSwitch = [](uint8_t idx) {
+    if (CWDriverRegistry::switchTo(&currentFace, idx, dma_display, &cwDateTime)) {
+      ClockwiseParams::getInstance()->clockFaceIndex = idx;
+      ClockwiseParams::getInstance()->save();
+    }
+  };
+  CWMqtt::getInstance()->onBrightnessChange = [](uint8_t bright) {
+    if (ClockwiseParams::getInstance()->brightMethod == 2)
+      dma_display->setBrightness8(bright);
+  };
 
   // OTA rollback guard: firmware reached end of setup() without crashing — mark as valid.
   // With CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE, a freshly OTA'd partition starts in

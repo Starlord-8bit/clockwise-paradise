@@ -372,6 +372,125 @@ struct ClockwiseWebServer
     esp_restart();
   }
 
+  // ── Setting descriptors (pointer-to-member, type-safe) ──────────────────
+  struct SettU8  { const char* k; uint8_t  ClockwiseParams::*f; };
+  struct SettU16 { const char* k; uint16_t ClockwiseParams::*f; };
+  struct SettU32 { const char* k; uint32_t ClockwiseParams::*f; };
+  struct SettB   { const char* k; bool     ClockwiseParams::*f; };
+  struct SettS   { const char* k; String   ClockwiseParams::*f; };
+
+  static void urlDecode(String& v) {
+    v.replace("%2F", "/"); v.replace("%2f", "/");
+    v.replace("%3A", ":"); v.replace("%3a", ":");
+    v.replace("%20", " ");
+    v.replace("%40", "@");
+    v.replace("%2B", "+"); v.replace("%2b", "+");
+    v.replace("%2C", ","); v.replace("%2c", ",");
+  }
+
+  /**
+   * Apply a single URL-decoded key=value pair to ClockwiseParams.
+   * Special keys (with runtime callbacks) are handled explicitly;
+   * everything else falls through to compact lookup tables.
+   */
+  bool handleSet(const String& key, const String& value) {
+    auto* p = ClockwiseParams::getInstance();
+
+    // ── Special keys with side-effects ──
+    if (key == "displayBright") {
+      p->displayBright = (uint8_t)value.toInt();
+      if (onBrightnessChange) onBrightnessChange(p->displayBright);
+      return true;
+    }
+    if (key == "use24hFormat") {
+      p->use24hFormat = (value == "1");
+      if (on24hFormatChange) on24hFormatChange(p->use24hFormat);
+      return true;
+    }
+    if (key == "clockFaceIndex") {
+      uint8_t idx = (uint8_t)value.toInt();
+      p->clockFaceIndex = idx;
+      if (onClockfaceSwitch) onClockfaceSwitch(idx);
+      else force_restart = true;
+      return true;
+    }
+    if (key == "autoBright") {
+      p->autoBrightMin = value.substring(0, 4).toInt();
+      p->autoBrightMax = value.substring(5, 9).toInt();
+      return true;
+    }
+    // Legacy colour swap — also updates ledColorOrder
+    if (key == "swapBlueGreen") {
+      p->swapBlueGreen = (value == "1");
+      p->ledColorOrder = (value == "1") ? ClockwiseParams::LED_ORDER_RBG
+                       : (p->swapBlueRed ? ClockwiseParams::LED_ORDER_GBR
+                                         : ClockwiseParams::LED_ORDER_RGB);
+      return true;
+    }
+    if (key == "swapBlueRed") {
+      p->swapBlueRed = (value == "1");
+      p->ledColorOrder = (value == "1") ? ClockwiseParams::LED_ORDER_GBR
+                       : (p->swapBlueGreen ? ClockwiseParams::LED_ORDER_RBG
+                                           : ClockwiseParams::LED_ORDER_RGB);
+      return true;
+    }
+
+    // ── Table-driven simple settings ──
+    static const SettU8 U8S[] = {
+      { "ledColorOrder",   &ClockwiseParams::ledColorOrder },
+      { "autoChange",      &ClockwiseParams::autoChange },
+      { "ldrPin",          &ClockwiseParams::ldrPin },
+      { "displayRotation", &ClockwiseParams::displayRotation },
+      { "driver",          &ClockwiseParams::driver },
+      { "E_pin",           &ClockwiseParams::E_pin },
+      { "brightMethod",    &ClockwiseParams::brightMethod },
+      { "nightStartH",     &ClockwiseParams::nightStartH },
+      { "nightStartM",     &ClockwiseParams::nightStartM },
+      { "nightEndH",       &ClockwiseParams::nightEndH },
+      { "nightEndM",       &ClockwiseParams::nightEndM },
+      { "nightBright",     &ClockwiseParams::nightBright },
+      { "nightMode",       &ClockwiseParams::nightMode },
+      { "nightLevel",      &ClockwiseParams::nightLevel },
+    };
+    for (const auto& s : U8S) if (key == s.k) { p->*(s.f) = (uint8_t)value.toInt(); return true; }
+
+    static const SettU16 U16S[] = {
+      { "superColor", &ClockwiseParams::superColor },
+      { "mqttPort",   &ClockwiseParams::mqttPort },
+    };
+    for (const auto& s : U16S) if (key == s.k) { p->*(s.f) = (uint16_t)value.toInt(); return true; }
+
+    static const SettU32 U32S[] = {
+      { "i2cSpeed", &ClockwiseParams::i2cSpeed },
+    };
+    for (const auto& s : U32S) if (key == s.k) { p->*(s.f) = (uint32_t)value.toInt(); return true; }
+
+    static const SettB BS[] = {
+      { "reversePhase", &ClockwiseParams::reversePhase },
+      { "mqttEnabled",  &ClockwiseParams::mqttEnabled },
+    };
+    for (const auto& s : BS) if (key == s.k) { p->*(s.f) = (value == "1"); return true; }
+
+    static const SettS SS[] = {
+      { "wifiSsid",     &ClockwiseParams::wifiSsid },
+      { "wifiPwd",      &ClockwiseParams::wifiPwd },
+      { "timeZone",     &ClockwiseParams::timeZone },
+      { "ntpServer",    &ClockwiseParams::ntpServer },
+      { "canvasFile",   &ClockwiseParams::canvasFile },
+      { "canvasServer", &ClockwiseParams::canvasServer },
+      { "manualPosix",  &ClockwiseParams::manualPosix },
+      { "mqttBroker",   &ClockwiseParams::mqttBroker },
+      { "mqttUser",     &ClockwiseParams::mqttUser },
+      { "mqttPass",     &ClockwiseParams::mqttPass },
+      { "mqttPrefix",   &ClockwiseParams::mqttPrefix },
+      { "bigclockSrv",  &ClockwiseParams::bigclockServer },
+      { "bigclockFile", &ClockwiseParams::bigclockFile },
+    };
+    for (const auto& s : SS) if (key == s.k) { p->*(s.f) = value; return true; }
+
+    return false;
+  }
+
   void processRequest(WiFiClient client, String method, String path, String key, String value)
   {
     if (method == "GET" && path == "/") {
@@ -443,111 +562,8 @@ struct ClockwiseWebServer
       force_restart = true;
     } else if (method == "POST" && path == "/set") {
       ClockwiseParams::getInstance()->load();
-      // URL-decode value (browser sends e.g. Europe%2FStockholm)
-      value.replace("%2F", "/");
-      value.replace("%3A", ":");
-      value.replace("%20", " ");
-      value.replace("%40", "@");
-      value.replace("%2B", "+");
-      value.replace("%2C", ",");
-      //a baby seal has died due this ifs
-      if (key == ClockwiseParams::getInstance()->PREF_DISPLAY_BRIGHT) {
-        ClockwiseParams::getInstance()->displayBright = value.toInt();
-        if (onBrightnessChange) onBrightnessChange((uint8_t)value.toInt());
-      } else if (key == ClockwiseParams::getInstance()->PREF_WIFI_SSID) {
-        ClockwiseParams::getInstance()->wifiSsid = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_WIFI_PASSWORD) {
-        ClockwiseParams::getInstance()->wifiPwd = value;
-      } else if (key == "autoBright") {   //autoBright=0010,0800
-        ClockwiseParams::getInstance()->autoBrightMin = value.substring(0,4).toInt();
-        ClockwiseParams::getInstance()->autoBrightMax = value.substring(5,9).toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_SWAP_BLUE_GREEN) {
-        ClockwiseParams::getInstance()->swapBlueGreen = (value == "1");
-        // Legacy: map old swapBlueGreen to new ledColorOrder
-        if (value == "1") ClockwiseParams::getInstance()->ledColorOrder = ClockwiseParams::LED_ORDER_RBG;
-        else if (!ClockwiseParams::getInstance()->swapBlueRed) ClockwiseParams::getInstance()->ledColorOrder = ClockwiseParams::LED_ORDER_RGB;
-      } else if (key == ClockwiseParams::getInstance()->PREF_SWAP_BLUE_RED) {
-        ClockwiseParams::getInstance()->swapBlueRed = (value == "1");
-        // Legacy: map old swapBlueRed to new ledColorOrder
-        if (value == "1") ClockwiseParams::getInstance()->ledColorOrder = ClockwiseParams::LED_ORDER_GBR;
-        else if (!ClockwiseParams::getInstance()->swapBlueGreen) ClockwiseParams::getInstance()->ledColorOrder = ClockwiseParams::LED_ORDER_RGB;
-      } else if (key == ClockwiseParams::getInstance()->PREF_LED_COLOR_ORDER) {
-        ClockwiseParams::getInstance()->ledColorOrder = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_REVERSE_PHASE) {
-        ClockwiseParams::getInstance()->reversePhase = (value == "1");
-      } else if (key == ClockwiseParams::getInstance()->PREF_AUTO_CHANGE) {
-        ClockwiseParams::getInstance()->autoChange = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_USE_24H_FORMAT) {
-        ClockwiseParams::getInstance()->use24hFormat = (value == "1");
-        if (on24hFormatChange) on24hFormatChange(value == "1");
-      } else if (key == ClockwiseParams::getInstance()->PREF_LDR_PIN) {
-        ClockwiseParams::getInstance()->ldrPin = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_TIME_ZONE) {
-        ClockwiseParams::getInstance()->timeZone = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_NTP_SERVER) {
-        ClockwiseParams::getInstance()->ntpServer = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_CANVAS_FILE) {
-        ClockwiseParams::getInstance()->canvasFile = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_CANVAS_SERVER) {
-        ClockwiseParams::getInstance()->canvasServer = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_MANUAL_POSIX) {
-        ClockwiseParams::getInstance()->manualPosix = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_DISPLAY_ROTATION) {
-        ClockwiseParams::getInstance()->displayRotation = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_DRIVER) {
-        ClockwiseParams::getInstance()->driver = value.toInt();
-      }  else if (key == ClockwiseParams::getInstance()->PREF_I2CSPEED) {
-        ClockwiseParams::getInstance()->i2cSpeed = value.toInt();
-      }  else if (key == ClockwiseParams::getInstance()->PREF_E_PIN) {
-        ClockwiseParams::getInstance()->E_pin = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_AUTO_CHANGE) {
-        ClockwiseParams::getInstance()->autoChange = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_ENABLED) {
-        ClockwiseParams::getInstance()->mqttEnabled = (value == "1");
-      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_BROKER) {
-        ClockwiseParams::getInstance()->mqttBroker = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_PORT) {
-        ClockwiseParams::getInstance()->mqttPort = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_USER) {
-        ClockwiseParams::getInstance()->mqttUser = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_PASS) {
-        ClockwiseParams::getInstance()->mqttPass = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_MQTT_PREFIX) {
-        ClockwiseParams::getInstance()->mqttPrefix = value;
-      } else if (key == "clockFaceIndex") {
-        uint8_t idx = (uint8_t)value.toInt();
-        ClockwiseParams::getInstance()->clockFaceIndex = idx;
-        if (onClockfaceSwitch) {
-          // Live runtime switch — no reboot needed
-          onClockfaceSwitch(idx);
-          // Respond before the callback runs (it may block briefly)
-        } else {
-          // Fallback: save + reboot (dispatcher not wired up yet)
-          force_restart = true;
-        }
-      } else if (key == ClockwiseParams::getInstance()->PREF_BRIGHT_METHOD) {
-        ClockwiseParams::getInstance()->brightMethod = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_NIGHT_START_H) {
-        ClockwiseParams::getInstance()->nightStartH = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_NIGHT_START_M) {
-        ClockwiseParams::getInstance()->nightStartM = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_NIGHT_END_H) {
-        ClockwiseParams::getInstance()->nightEndH = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_NIGHT_END_M) {
-        ClockwiseParams::getInstance()->nightEndM = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_NIGHT_BRIGHT) {
-        ClockwiseParams::getInstance()->nightBright = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_NIGHT_MODE) {
-        ClockwiseParams::getInstance()->nightMode = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_NIGHT_LEVEL) {
-        ClockwiseParams::getInstance()->nightLevel = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_SUPER_COLOR) {
-        ClockwiseParams::getInstance()->superColor = value.toInt();
-      } else if (key == ClockwiseParams::getInstance()->PREF_BIGCLOCK_SERVER) {
-        ClockwiseParams::getInstance()->bigclockServer = value;
-      } else if (key == ClockwiseParams::getInstance()->PREF_BIGCLOCK_FILE) {
-        ClockwiseParams::getInstance()->bigclockFile = value;
-      }
+      urlDecode(value);
+      handleSet(key, value);
       ClockwiseParams::getInstance()->save();
       client.println("HTTP/1.0 204 No Content");
     }

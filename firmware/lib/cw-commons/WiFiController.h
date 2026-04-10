@@ -6,6 +6,7 @@
 #include "CWWebServer.h"
 #include "StatusController.h"
 #include <WiFiManager.h>
+#include "esp_log.h"
 
 ImprovWiFi improvSerial(&Serial);
 
@@ -43,8 +44,8 @@ struct WiFiController
     } else {
       if (elapsedTimeOffline == 0 && !connectionSucessfulOnce)
         elapsedTimeOffline = millis();
-      
-      if ((millis() - elapsedTimeOffline) > 1000 * 60 * 5)  // restart if clockface is not showed and is 5min offline 
+
+      if ((millis() - elapsedTimeOffline) > 1000 * 60 * 5)  // restart if clockface is not showed and is 5min offline
         StatusController::getInstance()->forceRestart();
 
       return false;
@@ -66,7 +67,7 @@ struct WiFiController
     if (success)
     {
       onImprovWiFiConnectedCb(WiFi.SSID().c_str(), WiFi.psk().c_str());
-      Serial.printf("[WiFi] Connected via WiFiManager to %s, IP address %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+      ESP_LOGI("WiFi", "Connected via WiFiManager to %s, IP address %s", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
       connectionSucessfulOnce = success;
     }
 
@@ -90,10 +91,10 @@ struct WiFiController
       {
         connectionSucessfulOnce = true;
         ClockwiseWebServer::getInstance()->startWebServer();
-        Serial.printf("[WiFi] Connected to %s, IP address %s\n", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+        ESP_LOGI("WiFi", "Connected to %s, IP address %s", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
         return true;
       }
-    }      
+    }
 
     StatusController::getInstance()->wifiConnectionFailed("Setup WiFi via AP");
     alternativeSetupMethod();

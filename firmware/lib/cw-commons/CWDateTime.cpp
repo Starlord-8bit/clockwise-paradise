@@ -1,8 +1,9 @@
 #include "CWDateTime.h"
+#include "esp_log.h"
 
 void CWDateTime::begin(const char *timeZone, bool use24format, const char *ntpServer = NTP_SERVER, const char *posixTZ = "")
 {
-  Serial.printf("[Time] NTP Server: %s, Timezone: %s\n", ntpServer, timeZone);
+  ESP_LOGI("Time", "NTP Server: %s, Timezone: %s", ntpServer, timeZone);
   ezt::setServer(String(ntpServer));
 
   if (strlen(posixTZ) > 1) {
