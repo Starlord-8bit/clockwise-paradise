@@ -28,6 +28,7 @@ Usage:
 import argparse
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import time
@@ -49,6 +50,24 @@ POLL_INTERVAL_S = 4
 BOOT_MARKER = "[OTA] Firmware marked valid"
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _load_dotenv() -> None:
+    """Load REPO_ROOT/.env into os.environ (simple parser, no deps required)."""
+    env_file = REPO_ROOT / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if key and key not in os.environ:  # don't override shell env
+            os.environ[key] = value
+
+_load_dotenv()
 
 
 # ---------------------------------------------------------------------------
@@ -364,7 +383,7 @@ def main() -> int:
     result  = Result()
     version = args.version or get_build_version()
 
-    ip = args.ip or __import__("os").environ.get("DEVICE_IP")
+    ip = args.ip or os.environ.get("DEVICE_IP")
     if not ip:
         print("[error] No device IP — pass --ip <addr> or set DEVICE_IP in your .env")
         return 1
