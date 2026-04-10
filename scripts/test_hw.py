@@ -93,7 +93,10 @@ def http_get(url: str, timeout: int = 10):
         with urllib.request.urlopen(url, timeout=timeout) as resp:
             raw = resp.read()
             headers = {k.lower(): v for k, v in resp.headers.items()}
-            body = json.loads(raw) if raw else None
+            try:
+                body = json.loads(raw) if raw else None
+            except (json.JSONDecodeError, ValueError):
+                body = None
             return resp.status, headers, body
     except urllib.error.HTTPError as e:
         headers = {k.lower(): v for k, v in e.headers.items()}
