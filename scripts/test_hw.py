@@ -123,9 +123,13 @@ def http_post_binary(url: str, data: bytes, timeout: int = 120):
 
 def get_build_version() -> str:
     """
-    Returns the version that was baked into the firmware at build time.
-    Matches main/CMakeLists.txt: git describe --tags --abbrev=0 --match v*, strip leading v.
+    Returns the version baked into the firmware at build time.
+    Reads version.txt (single source of truth since main/CMakeLists.txt was updated).
+    Falls back to git describe --abbrev=0 for repos without version.txt.
     """
+    version_file = REPO_ROOT / "version.txt"
+    if version_file.exists():
+        return version_file.read_text().strip()
     try:
         tag = subprocess.check_output(
             ["git", "describe", "--tags", "--abbrev=0", "--match", "v*"],

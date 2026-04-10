@@ -5,7 +5,7 @@ export DEVICE_IP PORT BAUD
 
 IDF_VERSION ?= v4.4.7
 PORT        ?= /dev/ttyUSB0
-BAUD        ?= 460800
+BAUD        ?= 115200
 
 VERSION   := $(shell git describe --tags --always --dirty)
 BUILD_DIR := build/compile
@@ -81,7 +81,6 @@ test-hw: build
 	@test -n "$(DEVICE_IP)" || (echo "No device IP — set DEVICE_IP in .env or pass DEVICE_IP=<addr>"; exit 1)
 	python3 scripts/test_hw.py \
 	  --ip      "$(DEVICE_IP)" \
-	  --version "$(shell git describe --tags --abbrev=0 --match 'v*' 2>/dev/null | sed 's/^v//')" \
 	  --bin     "$(DIST_APP)" \
 	  $(if $(PORT),--port "$(PORT)",)
 
