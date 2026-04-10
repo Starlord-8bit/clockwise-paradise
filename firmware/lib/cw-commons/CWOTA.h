@@ -28,6 +28,7 @@
 #include <Arduino.h>
 #include <CWPreferences.h>
 #include <StatusController.h>
+#include "esp_log.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -97,7 +98,7 @@ public:
         info.download_url = asset_url;
         info.body        = _extractJsonString(response, "body");
 
-        Serial.printf("[OTA] Current: %s, Latest: %s, Update available: %s\n",
+        ESP_LOGI("OTA", "Current: %s, Latest: %s, Update available: %s",
                       current.c_str(), remote.c_str(), info.available ? "yes" : "no");
         return info;
     }
@@ -107,7 +108,7 @@ public:
      * Reboots on success; returns error string on failure.
      */
     String flashFromUrl(const String& url) {
-        Serial.printf("[OTA] Flashing from: %s\n", url.c_str());
+        ESP_LOGI("OTA", "Flashing from: %s", url.c_str());
         StatusController::getInstance()->printCenter("Updating...", 32);
 
         esp_http_client_config_t http_cfg = {};
@@ -131,13 +132,13 @@ public:
         esp_err_t err = esp_https_ota(&http_cfg);
 #endif
         if (err == ESP_OK) {
-            Serial.println("[OTA] Flash successful  -  rebooting");
+            ESP_LOGI("OTA", "Flash successful — rebooting");
             esp_restart();
             return "";  // never reached
         }
 
         String error = "Flash failed: " + String(esp_err_to_name(err));
-        Serial.println("[OTA] " + error);
+        ESP_LOGE("OTA", "%s", error.c_str());
         return error;
     }
 

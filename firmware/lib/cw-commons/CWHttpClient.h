@@ -2,6 +2,7 @@
 
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include "esp_log.h"
 
 struct ClockwiseHttpClient
 {
@@ -14,11 +15,11 @@ struct ClockwiseHttpClient
 
   void httpGet(WiFiClientSecure *client, const char *host, const char *path, const uint16_t port)
   {
-    Serial.printf("[HTTP] GET request to '%s%s' on port %d\n", host, path, port);
+    ESP_LOGI("HTTP", "GET request to '%s%s' on port %d", host, path, port);
 
     if (WiFi.status() != WL_CONNECTED)
     {
-      Serial.println("Not connected");
+      ESP_LOGW("HTTP", "Not connected");
       return;
     }
 
@@ -26,7 +27,7 @@ struct ClockwiseHttpClient
     client->setTimeout(10000);
     if (!client->connect(host, port))
     {
-      Serial.println(F("Connection failed"));
+      ESP_LOGE("HTTP", "Connection failed");
       return;
     }
 
@@ -36,7 +37,7 @@ struct ClockwiseHttpClient
     client->println(F("Connection: close"));
     if (client->println() == 0)
     {
-      Serial.println(F("Failed to send request"));
+      ESP_LOGE("HTTP", "Failed to send request");
       client->stop();
       return;
     }
@@ -52,8 +53,7 @@ struct ClockwiseHttpClient
 
     if (strstr(status, "200 OK") == NULL)
     {
-      Serial.print(F("Unexpected response: "));
-      Serial.println(status);
+      ESP_LOGW("HTTP", "Unexpected response: %s", status);
       client->stop();
       return;
     }
@@ -62,7 +62,7 @@ struct ClockwiseHttpClient
     char endOfHeaders[] = "\r\n\r\n";
     if (!client->find(endOfHeaders))
     {
-      Serial.println(F("Invalid response"));
+      ESP_LOGE("HTTP", "Invalid response");
       client->stop();
       return;
     }

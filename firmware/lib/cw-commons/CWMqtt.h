@@ -24,8 +24,10 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <functional>
 #include <CWPreferences.h>
 #include <StatusController.h>
+#include "esp_log.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -40,6 +42,10 @@ extern "C" {
 
 class CWMqtt {
 public:
+    // Runtime callbacks — set by main.cpp for live control without reboot
+    std::function<void(uint8_t)> onClockfaceSwitch = nullptr;
+    std::function<void(uint8_t)> onBrightnessChange = nullptr;
+
     static CWMqtt* getInstance() {
         static CWMqtt instance;
         return &instance;
@@ -75,7 +81,7 @@ public:
         esp_mqtt_client_register_event(_client, MQTT_EVENT_ANY, _event_handler, this);
         esp_mqtt_client_start(_client);
 
-        Serial.printf("[MQTT] Connecting to %s (device_id: %s)\n",
+        ESP_LOGI("MQTT", "Connecting to %s (device_id: %s)",
                       broker_uri.c_str(), _device_id.c_str());
         _enabled = true;
     }
@@ -96,7 +102,7 @@ public:
             + ",\"nightMode\":" + String(p->nightMode)
             + ",\"nightLevel\":" + String(p->nightLevel)
             + ",\"autoChange\":" + String(p->autoChange)
-            + ",\"clockface\":1"
+            + ",\"clockface\":" + String(p->clockFaceIndex)
             + ",\"nightActive\":false"
             + ",\"totalDays\":" + String(p->totalDays)
             + ",\"version\":\"" + String(CW_FW_VERSION) + "\"}";
@@ -211,7 +217,7 @@ private:
         esp_mqtt_client_publish(_client, btn_topic.c_str(),
                                 btn_payload.c_str(), 0, 1, 1);
 
-        Serial.println("[MQTT] Discovery payloads published");
+        ESP_LOGI("MQTT", "Discovery payloads published");
     }
 
     // ── Command handler ──────────────────────────────────────────────────────
@@ -225,7 +231,11 @@ private:
 
         if (prop == "brightness") {
             int val = payload.toInt();
-            if (val >= 0 && val <= 255) { p->displayBright = val; p->save(); }
+            if (val >= 0 && val <= 255) {
+              p->displayBright = val;
+              p->save();
+              if (onBrightnessChange) onBrightnessChange((uint8_t)val);
+            }
         } else if (prop == "nightMode") {
             int val = payload.toInt();
             if (val >= 0 && val <= 2) { p->nightMode = val; p->save(); }
@@ -236,7 +246,12 @@ private:
             int val = payload.toInt();
             if (val >= 0 && val <= 2) { p->autoChange = val; p->save(); }
         } else if (prop == "clockface") {
-            Serial.printf("[MQTT] clockface cmd: %s (requires dispatcher)\n", payload.c_str());
+            uint8_t idx = (uint8_t)payload.toInt();
+            if (onClockfaceSwitch) {
+              onClockfaceSwitch(idx);
+            } else {
+              ESP_LOGW("MQTT", "clockface switch requested but callback not wired");
+            }
         } else if (prop == "restart") {
             StatusController::getInstance()->forceRestart();
         }
@@ -255,7 +270,7 @@ private:
         switch ((esp_mqtt_event_id_t)event_id) {
             case MQTT_EVENT_CONNECTED:
                 self->_connected = true;
-                Serial.println("[MQTT] Connected");
+                ESP_LOGI("MQTT", "Connected");
                 {
                     // Publish availability + subscribe to commands
                     String avail = self->_base_topic + "/availability";
@@ -269,7 +284,7 @@ private:
 
             case MQTT_EVENT_DISCONNECTED:
                 self->_connected = false;
-                Serial.println("[MQTT] Disconnected — will retry");
+                ESP_LOGW("MQTT", "Disconnected — will retry");
                 break;
 
             case MQTT_EVENT_DATA: {

@@ -29,6 +29,7 @@
 
 #include <Arduino.h>
 #include "CWDateTime.h"
+#include "esp_log.h"
 
 // Forward-declare Adafruit_GFX to avoid pulling in the full header here
 // (cw-commons depends on Adafruit-GFX-Library which provides it at link time)
@@ -71,7 +72,7 @@ struct CWDriverRegistry {
      */
     static const CWClockfaceDriver* get(uint8_t index) {
         if (index >= COUNT) {
-            Serial.printf("[Registry] Unknown clockface index %d\n", index);
+            ESP_LOGW("Registry", "Unknown clockface index %d", index);
             return nullptr;
         }
         return REGISTRY[index];
@@ -100,7 +101,7 @@ struct CWDriverRegistry {
         *current = next;
         next->setup(display, dateTime);
 
-        Serial.printf("[Registry] Switched to '%s' (index %d)\n", next->name, index);
+        ESP_LOGI("Registry", "Switched to '%s' (index %d)", next->name, index);
         return true;
     }
 };
