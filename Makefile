@@ -1,7 +1,7 @@
 # Load per-developer config (device IP, serial port, etc.)
 # Copy .env.example to .env and fill in your values — .env is gitignored.
 -include .env
-export DEVICE_IP
+export DEVICE_IP PORT BAUD
 
 IDF_VERSION ?= v4.4.7
 PORT        ?= /dev/ttyUSB0
