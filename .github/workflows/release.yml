@@ -1,9 +1,15 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'   # triggered automatically by release-please when Release PR is merged
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Tag name (e.g. v2.6.2)'
+        type: string
+        required: true
+      prerelease:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       tag:
@@ -20,8 +26,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # No ref: specified — defaults to main for workflow_dispatch,
-      # or the pushed tag for push:tags trigger
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -66,7 +70,7 @@ jobs:
             cp build/bootloader/bootloader.bin release-assets/bootloader.bin &&
             cp build/partition_table/partition-table.bin release-assets/partition-table.bin
 
-      # Only create the tag for manual runs — release-please already owns it on push:tags
+      # Only create the tag for manual runs — release-please already owns it on workflow_call
       - name: Create and push tag
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -75,14 +79,21 @@ jobs:
           git tag ${{ steps.tag.outputs.name }}
           git push origin ${{ steps.tag.outputs.name }}
 
-      - name: Publish release
+      - name: Publish release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create ${{ steps.tag.outputs.name }} \
-            release-assets/clockwise-paradise.${{ steps.tag.outputs.name }}.bin \
-            release-assets/bootloader.bin \
-            release-assets/partition-table.bin \
-            --title "${{ steps.tag.outputs.name }} — Clockwise Paradise" \
-            --generate-notes \
-            ${{ inputs.prerelease == 'true' && '--prerelease' || '' }}
+          TAG="${{ steps.tag.outputs.name }}"
+          ASSETS="release-assets/clockwise-paradise.${TAG}.bin release-assets/bootloader.bin release-assets/partition-table.bin"
+          PRERELEASE=${{ inputs.prerelease == true && '--prerelease' || '' }}
+
+          # release-please already created the GitHub release — upload assets to it.
+          # For manual workflow_dispatch, create the release from scratch.
+          if gh release view "$TAG" &>/dev/null; then
+            gh release upload "$TAG" $ASSETS
+          else
+            gh release create "$TAG" $ASSETS \
+              --title "${TAG} — Clockwise Paradise" \
+              --generate-notes \
+              $PRERELEASE
+          fi
