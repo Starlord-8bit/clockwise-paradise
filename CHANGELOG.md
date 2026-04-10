@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.7.0](https://github.com/Starlord-8bit/clockwise-paradise/compare/v2.6.2...v2.7.0) (2026-04-10)
+
+
+### Features
+
+* live brightness/24h callbacks, version.txt single source of truth ([583470b](https://github.com/Starlord-8bit/clockwise-paradise/commit/583470b1150f814c30472eee3f4f52176cf25608))
+* **test:** add hardware integration test skill and runner ([8c43213](https://github.com/Starlord-8bit/clockwise-paradise/commit/8c432130ddb839aaa5e532f98c221d0d42c140eb))
+
+
+### Bug Fixes
+
+* **build:** drop --user from docker run, handle root-owned build/compile in clean ([2634962](https://github.com/Starlord-8bit/clockwise-paradise/commit/2634962bb4646db530936511acc328cdf8af9809))
+* **ci:** wire release-please → release.yml via workflow_call ([283953b](https://github.com/Starlord-8bit/clockwise-paradise/commit/283953b5f6b361d6210a7d348eef0b9e8d348cb3))
+* **test:** auto-load .env so script works standalone without sourcing ([ca449ac](https://github.com/Starlord-8bit/clockwise-paradise/commit/ca449acd48931d5eb4b50ad31b0f2ff47e25b0e5))
+* **test:** handle non-JSON responses in http_get ([6a045dd](https://github.com/Starlord-8bit/clockwise-paradise/commit/6a045dd766dcb10761d3593f56fe5dc89c307678))
+* **test:** read version from version.txt instead of git tag ([a145890](https://github.com/Starlord-8bit/clockwise-paradise/commit/a1458902d5bc09bab86694c947c639255f248162))
+
 ## [2.6.2](https://github.com/Starlord-8bit/clockwise-paradise/compare/v2.6.1...v2.6.2) (2026-04-10)
 
 
