@@ -10,4 +10,7 @@ sdkconfig*
 # Ignore IDE configs
 .vscode
 
+# Local developer config — device IPs, serial ports, etc. (never commit)
+.env
+
 dependencies.lock

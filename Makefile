@@ -1,3 +1,8 @@
+# Load per-developer config (device IP, serial port, etc.)
+# Copy .env.example to .env and fill in your values — .env is gitignored.
+-include .env
+export DEVICE_IP
+
 IDF_VERSION ?= v4.4.7
 PORT        ?= /dev/ttyUSB0
 BAUD        ?= 460800
@@ -14,7 +19,10 @@ DIST_APP  := $(DIST_DIR)/clockwise-paradise.$(VERSION).bin
 DIST_BOOT := $(DIST_DIR)/bootloader.bin
 DIST_PART := $(DIST_DIR)/partition-table.bin
 
-.PHONY: test build check flash flash-ota clean help
+# For flash-ota: explicit IP= on command line takes priority, falls back to DEVICE_IP from .env
+_FLASH_IP := $(or $(IP),$(DEVICE_IP))
+
+.PHONY: test build check flash flash-ota test-hw clean help
 
 ## Run native unit tests (no Docker required)
 test:
@@ -57,14 +65,25 @@ flash:
 	  --app    $(DIST_APP)
 
 ## Flash over Wi-Fi OTA — no USB cable required (requires: curl)
-## Usage: make flash-ota IP=192.168.1.x
+## Usage: make flash-ota [IP=192.168.x.x]   (or set DEVICE_IP in .env)
 flash-ota:
-	@test -f $(DIST_APP) || (echo "No firmware found — run 'make build' first"; exit 1)
-	@test -n "$(IP)"     || (echo "Usage: make flash-ota IP=<device-ip>"; exit 1)
-	curl -X POST "http://$(IP)/ota/upload" \
+	@test -f $(DIST_APP)   || (echo "No firmware found — run 'make build' first"; exit 1)
+	@test -n "$(_FLASH_IP)" || (echo "No device IP — set DEVICE_IP in .env or pass IP=<addr>"; exit 1)
+	curl -X POST "http://$(_FLASH_IP)/ota/upload" \
 	  -H "Content-Type: application/octet-stream" \
 	  --data-binary @$(DIST_APP) \
 	  --progress-bar
+
+## Build + OTA flash + hardware verification (requires: pip install pyserial)
+## Set DEVICE_IP in .env or override: make test-hw DEVICE_IP=192.168.x.x
+## Optional serial monitoring:         make test-hw PORT=/dev/ttyUSB0
+test-hw: build
+	@test -n "$(DEVICE_IP)" || (echo "No device IP — set DEVICE_IP in .env or pass DEVICE_IP=<addr>"; exit 1)
+	python3 scripts/test_hw.py \
+	  --ip      "$(DEVICE_IP)" \
+	  --version "$(shell git describe --tags --abbrev=0 --match 'v*' 2>/dev/null | sed 's/^v//')" \
+	  --bin     "$(DIST_APP)" \
+	  $(if $(PORT),--port "$(PORT)",)
 
 ## Remove compile artifacts and the current version's dist folder
 clean:
@@ -76,9 +95,12 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  test        Run native unit tests (no Docker)"
-	@echo "  build       Build firmware (IDF_VERSION=$(IDF_VERSION)) → $(DIST_DIR)/"
+	@echo "  build       Build firmware (IDF_VERSION=$(IDF_VERSION)) -> $(DIST_DIR)/"
 	@echo "  check       Run test + build — pre-release gate"
 	@echo "  flash       Flash over USB   (PORT=$(PORT)  BAUD=$(BAUD))"
-	@echo "  flash-ota   Flash over Wi-Fi (IP=<device-ip>)"
+	@echo "  flash-ota   Flash over Wi-Fi (DEVICE_IP or IP=<addr>)"
+	@echo "  test-hw     Build + OTA flash + hardware verification (DEVICE_IP in .env)"
 	@echo "  clean       Remove build/compile and build/$(VERSION)"
+	@echo ""
+	@echo "Local config: copy .env.example -> .env and set DEVICE_IP"
 	@echo ""
