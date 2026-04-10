@@ -6,22 +6,10 @@ idf_component_register(
 			PRIV_REQUIRES ESP32-HUB75-MatrixPanel-I2S-DMA cw-commons cw-gfx-engine WiFiManager Improv-WiFi-Library arduino Adafruit-GFX-Library esp_https_ota mqtt app_update ${CLOCKFACES}
                        )
 
-# Derive version from git tag at build time
-# Falls back to "dev" if no tag is present (e.g. untagged branch)
-execute_process(
-    COMMAND git describe --tags --abbrev=0 --match "v*"
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    OUTPUT_VARIABLE GIT_TAG
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-    ERROR_QUIET
-)
-
-if(NOT GIT_TAG)
-    set(GIT_TAG "dev")
-endif()
-
-# Strip leading 'v' so version is "2.0.0" not "v2.0.0"
-string(REGEX REPLACE "^v" "" CW_VERSION "${GIT_TAG}")
+# Read version from version.txt — single source of truth across all build systems.
+# Release-please (simple type) updates this file automatically on each release.
+file(READ "${CMAKE_SOURCE_DIR}/version.txt" CW_VERSION)
+string(STRIP "${CW_VERSION}" CW_VERSION)
 
 message(STATUS "Clockwise Paradise firmware version: ${CW_VERSION}")
 

@@ -58,7 +58,7 @@ int CWDateTime::getSecond()
   return myTZ.dateTime("s").toInt();
 }
 
-int CWDateTime::getDay() 
+int CWDateTime::getDay()
 {
   return myTZ.dateTime("d").toInt();
 }
@@ -66,22 +66,27 @@ int CWDateTime::getMonth()
 {
   return myTZ.dateTime("m").toInt();
 }
-int CWDateTime::getWeekday() 
+int CWDateTime::getWeekday()
 {
   return myTZ.dateTime("w").toInt()-1;
 }
 
-long CWDateTime::getMilliseconds() 
+long CWDateTime::getMilliseconds()
 {
   return myTZ.ms(TIME_NOW);
 }
 
-bool CWDateTime::isAM() 
+bool CWDateTime::isAM()
 {
   return myTZ.isAM();
 }
 
-bool CWDateTime::is24hFormat() 
+bool CWDateTime::is24hFormat()
 {
   return this->use24hFormat;
+}
+
+void CWDateTime::set24hFormat(bool use24)
+{
+  this->use24hFormat = use24;
 }

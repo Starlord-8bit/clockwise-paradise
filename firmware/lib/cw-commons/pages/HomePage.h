@@ -33,6 +33,10 @@ inline void cw_sendHomePage(WiFiClient& client) {
   </div>
 
   <script>
+  function $(id){return document.getElementById(id)}
+  var devTZ = 'UTC';
+  var uptimeDays = 0;
+  var uptimeStart = Date.now();
   function onSettingsLoaded(h){
     $('fw-ver').textContent = (h['cw_fw_name']||'Clockwise Paradise') + ' v' + (h['cw_fw_version']||'?');
     $('cf-name').textContent = h['clockface_name'] || '?';
@@ -44,21 +48,18 @@ inline void cw_sendHomePage(WiFiClient& client) {
     $('mqtt-status').textContent = (h['mqttenabled']==='1')
       ? '✅ Enabled — broker: ' + (h['mqttbroker']||'?')
       : '❌ Disabled';
+    devTZ = h['timezone'] || 'UTC';
+    uptimeDays = parseInt(h['totaldays']||'0', 10);
   }
-  // Live clock from device NTP — just show browser local time as proxy
   function tickClock(){
-    $('dev-time').textContent = new Date().toLocaleString('sv-SE',{timeZone:'Europe/Stockholm'});
+    $('dev-time').textContent = new Date().toLocaleString('en-GB',{timeZone:devTZ,hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }
   tickClock(); setInterval(tickClock, 1000);
-  // Uptime: not in /get headers, fetch raw
-  fetch('/get').then(r=>{
-    var start = Date.now();
-    setInterval(()=>{
-      var s = Math.floor((Date.now()-start)/1000);
-      var h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60;
-      $('uptime').textContent = h+'h '+m+'m '+sec+'s (since last page load)';
-    },1000);
-  });
+  setInterval(function(){
+    var s = Math.floor((Date.now()-uptimeStart)/1000);
+    var hrs=Math.floor(s/3600), mins=Math.floor((s%3600)/60), secs=s%60;
+    $('uptime').textContent = uptimeDays+'d '+hrs+'h '+mins+'m '+secs+'s';
+  }, 1000);
   </script>
   )HTML");
 

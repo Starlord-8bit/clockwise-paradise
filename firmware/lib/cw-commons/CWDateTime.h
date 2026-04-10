@@ -28,4 +28,5 @@ public:
 
   bool isAM();
   bool is24hFormat();
+  void set24hFormat(bool use24);
 };
