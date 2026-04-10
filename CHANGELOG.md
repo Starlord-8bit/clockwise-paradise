@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.6.2](https://github.com/Starlord-8bit/clockwise-paradise/compare/v2.6.1...v2.6.2) (2026-04-10)
+
+
+### Bug Fixes
+
+* **ci:** migrate release-please action to non-deprecated googleapis org ([40983dc](https://github.com/Starlord-8bit/clockwise-paradise/commit/40983dc6cb7b600d888429082c5c8de9e6499827))
+* register dma_display with Locator before first StatusController call ([#23](https://github.com/Starlord-8bit/clockwise-paradise/issues/23)) ([1d0408f](https://github.com/Starlord-8bit/clockwise-paradise/commit/1d0408f5be369717e7c43cf0e24732c398e54559))
+
 ## [Unreleased]
 
 ### Changed
