@@ -37,9 +37,13 @@ struct ClockwiseWebServer
   // Signature: void switchClockface(uint8_t index)
   // If null, falls back to save+reboot.
   std::function<void(uint8_t)> onClockfaceSwitch = nullptr;
+  // Callback for live brightness apply (fixed-mode only).
+  std::function<void(uint8_t)> onBrightnessChange = nullptr;
+  // Callback for live 24h format toggle.
+  std::function<void(bool)> on24hFormatChange = nullptr;
   const char* HEADER_TEMPLATE_D = "X-%s: %d\r\n";
   const char* HEADER_TEMPLATE_S = "X-%s: %s\r\n";
- 
+
   static ClockwiseWebServer *getInstance()
   {
     static ClockwiseWebServer base;
@@ -449,6 +453,7 @@ struct ClockwiseWebServer
       //a baby seal has died due this ifs
       if (key == ClockwiseParams::getInstance()->PREF_DISPLAY_BRIGHT) {
         ClockwiseParams::getInstance()->displayBright = value.toInt();
+        if (onBrightnessChange) onBrightnessChange((uint8_t)value.toInt());
       } else if (key == ClockwiseParams::getInstance()->PREF_WIFI_SSID) {
         ClockwiseParams::getInstance()->wifiSsid = value;
       } else if (key == ClockwiseParams::getInstance()->PREF_WIFI_PASSWORD) {
@@ -474,6 +479,7 @@ struct ClockwiseWebServer
         ClockwiseParams::getInstance()->autoChange = value.toInt();
       } else if (key == ClockwiseParams::getInstance()->PREF_USE_24H_FORMAT) {
         ClockwiseParams::getInstance()->use24hFormat = (value == "1");
+        if (on24hFormatChange) on24hFormatChange(value == "1");
       } else if (key == ClockwiseParams::getInstance()->PREF_LDR_PIN) {
         ClockwiseParams::getInstance()->ldrPin = value.toInt();
       } else if (key == ClockwiseParams::getInstance()->PREF_TIME_ZONE) {
@@ -554,7 +560,7 @@ struct ClockwiseWebServer
 
     client.println("HTTP/1.0 204 No Content");
     client.printf(HEADER_TEMPLATE_D, key, analogRead(pin));
-    
+
     client.println();
   }
 
@@ -634,7 +640,7 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_REVERSE_PHASE, ClockwiseParams::getInstance()->reversePhase);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_AUTO_CHANGE, ClockwiseParams::getInstance()->autoChange);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_USE_24H_FORMAT, ClockwiseParams::getInstance()->use24hFormat);
-    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_LDR_PIN, ClockwiseParams::getInstance()->ldrPin);    
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_LDR_PIN, ClockwiseParams::getInstance()->ldrPin);
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_TIME_ZONE, ClockwiseParams::getInstance()->timeZone.c_str());
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_WIFI_SSID, ClockwiseParams::getInstance()->wifiSsid.c_str());
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_NTP_SERVER, ClockwiseParams::getInstance()->ntpServer.c_str());
@@ -671,5 +677,5 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_S, "wifiIP", WiFi.localIP().toString().c_str());
     client.println();
   }
-  
+
 };

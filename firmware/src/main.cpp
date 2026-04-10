@@ -222,6 +222,17 @@ void setup()
     }
   };
 
+  // Live brightness apply (fixed mode only — auto modes manage their own brightness)
+  ClockwiseWebServer::getInstance()->onBrightnessChange = [](uint8_t bright) {
+    if (ClockwiseParams::getInstance()->brightMethod == 2)
+      dma_display->setBrightness8(bright);
+  };
+
+  // Live 24h format toggle — update cwDateTime immediately so clockfaces see the change
+  ClockwiseWebServer::getInstance()->on24hFormatChange = [](bool use24) {
+    cwDateTime.set24hFormat(use24);
+  };
+
   // Fixed brightness: apply immediately
   if (p->brightMethod == 2) dma_display->setBrightness8(p->displayBright);
 
