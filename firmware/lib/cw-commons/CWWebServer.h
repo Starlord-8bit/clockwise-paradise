@@ -4,6 +4,7 @@
 #include <functional>
 #include <CWPreferences.h>
 #include <CWOTA.h>
+#include <CWWidgetManager.h>
 #include "StatusController.h"
 #include "esp_log.h"
 
@@ -38,6 +39,8 @@ struct ClockwiseWebServer
   // Signature: void switchClockface(uint8_t index)
   // If null, falls back to save+reboot.
   std::function<void(uint8_t)> onClockfaceSwitch = nullptr;
+  // Generic widget switch callback. Returns true if the widget was activated.
+  std::function<bool(const String&)> onWidgetSwitch = nullptr;
   // Callback for live brightness apply (fixed-mode only).
   std::function<void(uint8_t)> onBrightnessChange = nullptr;
   // Callback for live 24h format toggle.
@@ -411,8 +414,23 @@ struct ClockwiseWebServer
     if (key == "clockFaceIndex") {
       uint8_t idx = (uint8_t)value.toInt();
       p->clockFaceIndex = idx;
+      p->activeWidget = "clock";
       if (onClockfaceSwitch) onClockfaceSwitch(idx);
       else force_restart = true;
+      return true;
+    }
+    if (key == "activeWidget") {
+      String normalized = value;
+      normalized.toLowerCase();
+      if (onWidgetSwitch) {
+        if (!onWidgetSwitch(normalized)) {
+          ESP_LOGW("Web", "Widget '%s' not activated", normalized.c_str());
+          return false;
+        }
+      } else {
+        p->activeWidget = normalized;
+        force_restart = true;
+      }
       return true;
     }
     if (key == "autoBright") {
@@ -484,6 +502,7 @@ struct ClockwiseWebServer
       { "mqttUser",     &ClockwiseParams::mqttUser },
       { "mqttPass",     &ClockwiseParams::mqttPass },
       { "mqttPrefix",   &ClockwiseParams::mqttPrefix },
+      { "activeWidget", &ClockwiseParams::activeWidget },
       { "bigclockSrv",  &ClockwiseParams::bigclockServer },
       { "bigclockFile", &ClockwiseParams::bigclockFile },
     };
@@ -556,6 +575,8 @@ struct ClockwiseWebServer
       return;
     } else if (method == "GET" && path == "/api/clockfaces") {
       sendClockfaceList(client);
+    } else if (method == "GET" && path == "/api/widgets") {
+      sendWidgetList(client);
     } else if (method == "GET" && path == "/backup") {
       exportConfig(client);
     } else if (method == "POST" && path == "/restore") {
@@ -588,6 +609,30 @@ struct ClockwiseWebServer
                     d->index, d->name,
                     (p->clockFaceIndex == d->index) ? "true" : "false");
     }
+    client.print("]");
+  }
+
+  void sendWidgetList(WiFiClient client) {
+    auto* p = ClockwiseParams::getInstance();
+    client.println("HTTP/1.0 200 OK");
+    client.println("Content-Type: application/json");
+    client.println();
+    client.print("[");
+    client.printf("{\"name\":\"%s\",\"implemented\":true,\"active\":%s}",
+                  CWWidgetManager::WIDGET_CLOCK,
+                  (p->activeWidget == CWWidgetManager::WIDGET_CLOCK) ? "true" : "false");
+    client.printf(",{\"name\":\"%s\",\"implemented\":false,\"active\":%s}",
+                  CWWidgetManager::WIDGET_WEATHER,
+                  (p->activeWidget == CWWidgetManager::WIDGET_WEATHER) ? "true" : "false");
+    client.printf(",{\"name\":\"%s\",\"implemented\":false,\"active\":%s}",
+                  CWWidgetManager::WIDGET_NOTIFICATION,
+                  (p->activeWidget == CWWidgetManager::WIDGET_NOTIFICATION) ? "true" : "false");
+    client.printf(",{\"name\":\"%s\",\"implemented\":false,\"active\":%s}",
+                  CWWidgetManager::WIDGET_STOCKS,
+                  (p->activeWidget == CWWidgetManager::WIDGET_STOCKS) ? "true" : "false");
+    client.printf(",{\"name\":\"%s\",\"implemented\":true,\"active\":%s}",
+                  CWWidgetManager::WIDGET_TIMER,
+                  (p->activeWidget == CWWidgetManager::WIDGET_TIMER) ? "true" : "false");
     client.print("]");
   }
 
@@ -640,7 +685,8 @@ struct ClockwiseWebServer
     json += "\"mqttBroker\":\""  + p->mqttBroker                      + "\",";
     json += "\"mqttPort\":"      + String(p->mqttPort)                + ",";
     json += "\"mqttUser\":\""    + p->mqttUser                        + "\",";
-    json += "\"mqttPrefix\":\""  + p->mqttPrefix                      + "\"";
+    json += "\"mqttPrefix\":\""  + p->mqttPrefix                      + "\",";
+    json += "\"activeWidget\":\"" + p->activeWidget                   + "\"";
     // Note: mqttPass intentionally omitted from export for security
     json += "}";
 
@@ -707,6 +753,7 @@ struct ClockwiseWebServer
 
     client.printf(HEADER_TEMPLATE_D, "clockfaceIndex", ClockwiseParams::getInstance()->clockFaceIndex);
     client.printf(HEADER_TEMPLATE_S, "clockfaceName", CWDriverRegistry::name(ClockwiseParams::getInstance()->clockFaceIndex));
+    client.printf(HEADER_TEMPLATE_S, "activeWidget", ClockwiseParams::getInstance()->activeWidget.c_str());
     client.printf(HEADER_TEMPLATE_S, "CW_FW_VERSION", CW_FW_VERSION);
     client.printf(HEADER_TEMPLATE_S, "CW_FW_NAME", CW_FW_NAME);
     client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", CLOCKFACE_NAME);

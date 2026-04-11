@@ -12,6 +12,7 @@ static const CWClockfaceDriver* currentFace = nullptr;
 #include <CWDateTime.h>
 #include <CWPreferences.h>
 #include <CWWebServer.h>
+#include <CWWidgetManager.h>
 #include <StatusController.h>
 #include <Locator.h>
 #include <CWMqtt.h>
@@ -23,6 +24,7 @@ static const CWClockfaceDriver* currentFace = nullptr;
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
 // clockface pointer declared above
+CWWidgetManager widgetManager;
 WiFiController wifi;
 CWDateTime cwDateTime;
 
@@ -151,13 +153,13 @@ void nightModeCheck()
       dma_display->setBrightness8(bright);
       p->canvasServer = p->bigclockServer;
       p->canvasFile   = p->bigclockFile;
-      CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
+      widgetManager.activateClockWidget(p->clockFaceIndex);
     }
   } else if (!inNight && nightModeActive) {
     nightModeActive = false;
     p->load();  // restore original canvas settings
     dma_display->setBrightness8(p->displayBright);
-    CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
+    widgetManager.activateClockWidget(p->clockFaceIndex);
   }
 }
 
@@ -178,8 +180,9 @@ void autoChangeCheck()
       next = random(CWDriverRegistry::COUNT);
       if (next == p->clockFaceIndex) next = (next + 1) % CWDriverRegistry::COUNT;
     }
-    if (CWDriverRegistry::switchTo(&currentFace, next, dma_display, &cwDateTime)) {
+    if (widgetManager.activateClockWidget(next)) {
       p->clockFaceIndex = next;
+      p->activeWidget = CWWidgetManager::WIDGET_CLOCK;
       p->save();
       ESP_LOGI("AUTO", "Day changed — switched to clockface %d", next);
     }
@@ -227,13 +230,24 @@ void setup()
 
   // v3: note target clockface — setup() called after cwDateTime is ready
   CWDriverRegistry::get(p->clockFaceIndex); // validate index early
+  widgetManager.begin(dma_display, &cwDateTime, &currentFace);
 
   // Wire live-switch callback — instant, no reboot
   ClockwiseWebServer::getInstance()->onClockfaceSwitch = [](uint8_t idx) {
-    if (CWDriverRegistry::switchTo(&currentFace, idx, dma_display, &cwDateTime)) {
+    if (widgetManager.activateClockWidget(idx)) {
       ClockwiseParams::getInstance()->clockFaceIndex = idx;
+      ClockwiseParams::getInstance()->activeWidget = CWWidgetManager::WIDGET_CLOCK;
       ClockwiseParams::getInstance()->save();
     }
+  };
+  ClockwiseWebServer::getInstance()->onWidgetSwitch = [](const String& widgetName) {
+    auto* prefs = ClockwiseParams::getInstance();
+    if (widgetManager.activateWidgetByName(widgetName, prefs->clockFaceIndex)) {
+      prefs->activeWidget = widgetManager.activeWidgetName();
+      prefs->save();
+      return true;
+    }
+    return false;
   };
 
   // Live brightness apply (fixed mode only — auto modes manage their own brightness)
@@ -261,16 +275,30 @@ void setup()
     cwDateTime.begin(p->timeZone.c_str(), p->use24hFormat,
                      p->ntpServer.c_str(), p->manualPosix.c_str());
     // Now safe to setup the clockface — cwDateTime is ready
-    CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
+    if (!widgetManager.activateWidgetByName(p->activeWidget, p->clockFaceIndex)) {
+      widgetManager.activateClockWidget(p->clockFaceIndex);
+      p->activeWidget = CWWidgetManager::WIDGET_CLOCK;
+      p->save();
+    }
     CWMqtt::getInstance()->begin();  // start MQTT after WiFi + time sync
   }
 
   // Wire MQTT callbacks — same runtime behaviour as web UI
   CWMqtt::getInstance()->onClockfaceSwitch = [](uint8_t idx) {
-    if (CWDriverRegistry::switchTo(&currentFace, idx, dma_display, &cwDateTime)) {
+    if (widgetManager.activateClockWidget(idx)) {
       ClockwiseParams::getInstance()->clockFaceIndex = idx;
+      ClockwiseParams::getInstance()->activeWidget = CWWidgetManager::WIDGET_CLOCK;
       ClockwiseParams::getInstance()->save();
     }
+  };
+  CWMqtt::getInstance()->onWidgetSwitch = [](const String& widgetName) {
+    auto* prefs = ClockwiseParams::getInstance();
+    if (widgetManager.activateWidgetByName(widgetName, prefs->clockFaceIndex)) {
+      prefs->activeWidget = widgetManager.activeWidgetName();
+      prefs->save();
+      return true;
+    }
+    return false;
   };
   CWMqtt::getInstance()->onBrightnessChange = [](uint8_t bright) {
     if (ClockwiseParams::getInstance()->brightMethod == 2)
@@ -299,7 +327,7 @@ void loop()
   }
 
   if (wifi.connectionSucessfulOnce) {
-    if (currentFace) currentFace->update();
+    widgetManager.update();
     uptimeCheck();
     autoChangeCheck();
   }
