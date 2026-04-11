@@ -22,22 +22,7 @@ on:
 
 jobs:
   test-native:
-    name: Native Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install build tools
-        run: sudo apt-get install -y cmake ninja-build
-
-      - name: Build and run native tests
-        run: |
-          cd firmware/test/test_native
-          cmake -B build -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build
-          ./build/test_native
+    uses: ./.github/workflows/test-native.yml
 
   build-and-release:
     name: Build & Publish Release

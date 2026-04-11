@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.9.0](https://github.com/Starlord-8bit/clockwise-paradise/compare/v2.7.0...v2.9.0) (2026-04-11)
+
+
+### Features
+
+* add workspace coding-guidelines skill for structured firmware implementation
+* expand native tests with night-window, URL decode, and OTA version-normalization coverage
+
+
+### Bug Fixes
+
+* seed random mode to avoid repeat clockface sequences after reboot
+* harden `brightMethod` handling and compatibility mapping for `autoBrightEn`
+* reduce NVS wear with targeted writes for uptime and clockface index updates
+
+
+### CI
+
+* add build workflow concurrency cancellation
+* extract reusable native test workflow and reuse it in build/release pipelines
+* enforce version sync check between `version.txt` and `firmware/platformio.ini`
+
+
+### Documentation
+
+* update README feature docs and roadmap status
+* refresh release checklist to match release-please based flow
+
+
 ## [2.7.0](https://github.com/Starlord-8bit/clockwise-paradise/compare/v2.6.2...v2.7.0) (2026-04-10)
 
 

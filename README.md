@@ -33,6 +33,7 @@ It builds on the solid foundation of the original, adds the best features from t
 | **Uptime Counter** | Days running shown in the settings footer |
 | **Web Server Watchdog** | Auto-restart HTTP server every 5 minutes — no more freezes |
 | **OTA Updates** | Update firmware over Wi-Fi — via web UI or HTTP API (no USB required after initial flash) |
+| **MQTT + HA Discovery** | Native MQTT client with Home Assistant auto-discovery and device entities |
 | **Canvas Clockfaces** | 11 ready-to-use JSON faces in `clockfaces/` — local server supported |
 
 ### No callhome, no cloud, no surprises
@@ -47,6 +48,25 @@ It builds on the solid foundation of the original, adds the best features from t
 A native HACS integration is available at **[Starlord-8bit/ha-clockwise](https://github.com/Starlord-8bit/ha-clockwise)**.
 
 Gives you proper HA entities: clockface selector, brightness slider, night mode controls, auto-change, NTP server, Canvas file/server, restart button, uptime sensor — all auto-detected based on firmware version.
+
+---
+
+## 📡 MQTT Integration
+
+Clockwise Paradise includes a built-in MQTT client and publishes Home Assistant Discovery entities automatically.
+
+- Discovery prefix: `homeassistant`
+- Default state topic base: `clockwise/<device-mac>`
+- Availability topic with LWT (`online` / `offline`)
+- Runtime control topics for clockface, brightness, and night settings
+
+To enable it:
+1. Open the web UI.
+2. Set `MQTT Enabled` to `on`.
+3. Configure broker, port, username/password (optional), and topic prefix.
+4. Enable Home Assistant discovery if desired.
+
+After saving, Home Assistant should auto-create entities for supported controls and sensors.
 
 ---
 
@@ -85,8 +105,8 @@ More community faces at [jnthas/clock-club](https://github.com/jnthas/clock-club
 ```bash
 git clone --recurse-submodules https://github.com/Starlord-8bit/clockwise-paradise
 cd clockwise-paradise
-idf.py build
-idf.py flash
+make build
+make flash PORT=/dev/ttyUSB0
 ```
 
 Or use the web flasher at [clockwise.page](https://clockwise.page) with a release `.bin`.
@@ -146,9 +166,9 @@ The device fetches and flashes the latest `clockwise-paradise.bin` from GitHub R
 
 ## 📋 Roadmap
 
-- [ ] Multi-clockface runtime dispatcher (switch faces without reflashing)
+- [x] Multi-clockface runtime dispatcher (switch faces without reflashing)
 - [ ] Multi-Canvas slots (up to 5 Canvas faces configured from web UI)
-- [ ] CI/CD pipeline (compile test on every push)
+- [x] CI/CD pipeline (compile test on every push)
 - [ ] HACS default store submission
 - [ ] Canvas clockface editor integration
 

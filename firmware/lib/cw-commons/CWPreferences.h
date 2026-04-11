@@ -182,6 +182,16 @@ struct ClockwiseParams
         preferences.putString(PREF_MQTT_PREFIX, mqttPrefix);
     }
 
+    void saveClockfaceIndex()
+    {
+        preferences.putUChar(PREF_CLOCKFACE_INDEX, clockFaceIndex);
+    }
+
+    void saveTotalDays()
+    {
+        preferences.putUInt(PREF_TOTAL_DAYS, totalDays);
+    }
+
     void load()
     {
         swapBlueGreen = preferences.getBool(PREF_SWAP_BLUE_GREEN, false);

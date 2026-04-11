@@ -415,6 +415,16 @@ struct ClockwiseWebServer
       else force_restart = true;
       return true;
     }
+    if (key == "brightMethod") {
+      uint8_t method = (uint8_t)value.toInt();
+      p->brightMethod = (method <= 2) ? method : 0;
+      return true;
+    }
+    // Compatibility key used by newer UI revisions: enabled=auto-LDR, disabled=fixed.
+    if (key == "autoBrightEn") {
+      p->brightMethod = (value == "1") ? 0 : 2;
+      return true;
+    }
     if (key == "autoBright") {
       p->autoBrightMin = value.substring(0, 4).toInt();
       p->autoBrightMax = value.substring(5, 9).toInt();
@@ -444,7 +454,6 @@ struct ClockwiseWebServer
       { "displayRotation", &ClockwiseParams::displayRotation },
       { "driver",          &ClockwiseParams::driver },
       { "E_pin",           &ClockwiseParams::E_pin },
-      { "brightMethod",    &ClockwiseParams::brightMethod },
       { "nightStartH",     &ClockwiseParams::nightStartH },
       { "nightStartM",     &ClockwiseParams::nightStartM },
       { "nightEndH",       &ClockwiseParams::nightEndH },

@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
+#include "esp_system.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 
@@ -180,7 +181,7 @@ void autoChangeCheck()
     }
     if (CWDriverRegistry::switchTo(&currentFace, next, dma_display, &cwDateTime)) {
       p->clockFaceIndex = next;
-      p->save();
+      p->saveClockfaceIndex();
       ESP_LOGI("AUTO", "Day changed — switched to clockface %d", next);
     }
   }
@@ -193,7 +194,7 @@ void uptimeCheck()
   if (today != lastUptimeDay) {
     lastUptimeDay = today;
     ClockwiseParams::getInstance()->totalDays++;
-    ClockwiseParams::getInstance()->save();
+    ClockwiseParams::getInstance()->saveTotalDays();
   }
 }
 
@@ -209,6 +210,7 @@ void webServerWatchdog()
 void setup()
 {
   Serial.begin(115200);
+  randomSeed(esp_random());
   pinMode(ESP32_LED_BUILTIN, OUTPUT);
   StatusController::getInstance()->blink_led(5, 100);
 

@@ -1,18 +1,29 @@
 # Release Checklist
 
-Just a checklist to follow the steps to be done when releasing a new version of Clockwise. I know, I must automate this. 
+This checklist reflects the current Clockwise Paradise release flow using release-please and GitHub Actions.
 
-- [ ] Update website in [gh-pages](https://github.com/jnthas/clockwise/blob/gh-pages/index.md)
-  - [ ] Update message at the top with most significant feature released 
-- [ ] Update the [CHANGELOG.md](https://github.com/jnthas/clockwise/blob/main/CHANGELOG.md)
-- [ ] Update [README.md](https://github.com/jnthas/clockwise/blob/main/README.md)
-  - [ ] Update message at the top with most significant feature released 
-  - [ ] Update Params section if new ones were added
-- [ ] Update firmware version in [platformio.ini](https://github.com/jnthas/clockwise/blob/aa22923dc195a3ffff8e95766e7ec9acda82e090/firmware/platformio.ini#L39)
-- [ ] For new clockfaces
-  - [ ] Add new folder with the clockface code in the branch [gh-pages](https://github.com/jnthas/clockwise/tree/gh-pages/static/firmware/cw-cf-0x01)
-  - [ ] Include the new clockface in the [CI/CD file](https://github.com/jnthas/clockwise/blob/main/.github/workflows/clockwise-ci.yml)
-  - [ ] Add the [CMakeLists.txt](https://github.com/jnthas/cw-cf-0x07/blob/12eb5e70f0d4993d8531b871ad02f3964b76e582/CMakeLists.txt) in the new clokface repository 
-- [ ] Check if [ESP-IDF CI](https://github.com/jnthas/clockwise/actions) is passing without errors 
-- [ ] Create a branch called releases/1.x.x (it will trigger the build and release)
-- [ ] Create a tag (add the same description of the CHANGELOG)
+## Before merge to main
+
+- [ ] Native tests pass locally: `make test`
+- [ ] Firmware build passes locally: `make build`
+- [ ] Version alignment verified: `version.txt` and `firmware/platformio.ini` `CW_FW_VERSION` match
+- [ ] README updated for any user-facing behavior/config changes
+- [ ] CHANGELOG reviewed (release-please entries look correct)
+- [ ] Security review done for any new endpoint/settings touching credentials
+
+## After merge to main
+
+- [ ] `Release Please` PR is created/updated automatically
+- [ ] Review and merge release PR
+- [ ] Confirm `.github/workflows/release.yml` completed successfully
+- [ ] Confirm release assets exist:
+  - [ ] `clockwise-paradise.<tag>.bin`
+  - [ ] `bootloader.bin`
+  - [ ] `partition-table.bin`
+- [ ] Flash-test the released app binary on a real ESP32 device
+
+## Optional post-release validation
+
+- [ ] OTA update from previous version succeeds via `/ota/update`
+- [ ] Manual OTA upload via `/ota/upload` succeeds
+- [ ] Home Assistant MQTT discovery still creates expected entities

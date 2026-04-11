@@ -11,41 +11,46 @@ on:
       - 'clockfaces/**'
   workflow_dispatch:
 
-jobs:
-  # Run native unit tests first — firmware build is gated on these passing
-  test-native:
-    name: Native Tests
-    runs-on: ubuntu-latest
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
+jobs:
+  version-sync:
+    name: Version Sync Check
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Install build tools
-        run: sudo apt-get install -y cmake ninja-build
-
-      - name: Check for native tests
-        id: check_tests
+      - name: Validate version.txt and platformio.ini match
         run: |
-          if [ -d "firmware/test/test_native" ] && [ -f "firmware/test/test_native/CMakeLists.txt" ]; then
-            echo "has_tests=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_tests=false" >> $GITHUB_OUTPUT
-            echo "No native tests found — skipping"
+          FILE_VERSION="$(tr -d '[:space:]' < version.txt)"
+          PIO_VERSION="$(grep -oE 'CW_FW_VERSION="\\"[0-9]+\.[0-9]+\.[0-9]+\\""' firmware/platformio.ini | sed -E 's/.*\\"([0-9]+\.[0-9]+\.[0-9]+)\\""/\1/')"
+
+          if [ -z "$FILE_VERSION" ] || [ -z "$PIO_VERSION" ]; then
+            echo "Could not parse version values"
+            echo "version.txt='$FILE_VERSION' platformio='$PIO_VERSION'"
+            exit 1
           fi
 
-      - name: Build and run native tests
-        if: steps.check_tests.outputs.has_tests == 'true'
-        run: |
-          cd firmware/test/test_native
-          cmake -B build -DCMAKE_BUILD_TYPE=Debug
-          cmake --build build
-          ./build/test_native
+          if [ "$FILE_VERSION" != "$PIO_VERSION" ]; then
+            echo "Version mismatch detected"
+            echo "version.txt=$FILE_VERSION"
+            echo "firmware/platformio.ini CW_FW_VERSION=$PIO_VERSION"
+            exit 1
+          fi
+
+          echo "Version sync OK: $FILE_VERSION"
+
+  test-native:
+    uses: ./.github/workflows/test-native.yml
+    needs: version-sync
 
   build:
     name: ESP-IDF Build (${{ matrix.idf_version }})
     runs-on: ubuntu-latest
-    needs: test-native  # only runs if tests pass
+    needs: test-native  # only runs if version sync + tests pass
 
     strategy:
       fail-fast: false
