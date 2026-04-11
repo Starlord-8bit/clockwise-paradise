@@ -18,6 +18,7 @@
 // Legacy single-page UI (kept temporarily)
 #include "SettingsWebPage.h"
 
+#include "CWClockfaceDriver.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 
@@ -553,6 +554,8 @@ struct ClockwiseWebServer
       client.stop();
       CWOTA::getInstance()->checkAndUpdate();
       return;
+    } else if (method == "GET" && path == "/api/clockfaces") {
+      sendClockfaceList(client);
     } else if (method == "GET" && path == "/backup") {
       exportConfig(client);
     } else if (method == "POST" && path == "/restore") {
@@ -570,6 +573,23 @@ struct ClockwiseWebServer
   }
 
 
+
+  void sendClockfaceList(WiFiClient client) {
+    auto* p = ClockwiseParams::getInstance();
+    client.println("HTTP/1.0 200 OK");
+    client.println("Content-Type: application/json");
+    client.println();
+    client.print("[");
+    for (uint8_t i = 0; i < CWDriverRegistry::COUNT; i++) {
+      const CWClockfaceDriver* d = CWDriverRegistry::get(i);
+      if (!d) continue;
+      if (i > 0) client.print(",");
+      client.printf("{\"index\":%d,\"name\":\"%s\",\"active\":%s}",
+                    d->index, d->name,
+                    (p->clockFaceIndex == d->index) ? "true" : "false");
+    }
+    client.print("]");
+  }
 
   void readPin(WiFiClient client, String key, uint16_t pin) {
     ClockwiseParams::getInstance()->load();
@@ -686,6 +706,7 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_MQTT_PREFIX, ClockwiseParams::getInstance()->mqttPrefix.c_str());
 
     client.printf(HEADER_TEMPLATE_D, "clockfaceIndex", ClockwiseParams::getInstance()->clockFaceIndex);
+    client.printf(HEADER_TEMPLATE_S, "clockfaceName", CWDriverRegistry::name(ClockwiseParams::getInstance()->clockFaceIndex));
     client.printf(HEADER_TEMPLATE_S, "CW_FW_VERSION", CW_FW_VERSION);
     client.printf(HEADER_TEMPLATE_S, "CW_FW_NAME", CW_FW_NAME);
     client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", CLOCKFACE_NAME);

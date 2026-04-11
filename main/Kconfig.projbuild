@@ -5,8 +5,8 @@ menu "Clockwise Configuration"
     help
         Some 64x64 HUB75 displays have the green and blue pins reversed. Enable this option to swap these pins.
 
-  # All clockfaces are compiled in simultaneously via the dispatcher.
-  # The runtime selection is done via CWClockfaceDispatcher (index 0-5).
+  # All clockfaces are compiled in simultaneously.
+  # Runtime selection is done via CWDriverRegistry (index 0-5).
   # The individual CONFIG_CLOCKFACE_* guards have been removed from each
   # cw-cf-0xNN CMakeLists.txt — all source files always compile.
 

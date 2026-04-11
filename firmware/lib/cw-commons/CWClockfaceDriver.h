@@ -28,12 +28,9 @@
  */
 
 #include <Arduino.h>
+#include <Adafruit_GFX.h>
 #include "CWDateTime.h"
 #include "esp_log.h"
-
-// Forward-declare Adafruit_GFX to avoid pulling in the full header here
-// (cw-commons depends on Adafruit-GFX-Library which provides it at link time)
-class Adafruit_GFX;
 
 // ─── Driver descriptor ───────────────────────────────────────────────────────
 
@@ -79,6 +76,14 @@ struct CWDriverRegistry {
     }
 
     /**
+     * Get the human-readable name for a clockface index.
+     */
+    static const char* name(uint8_t index) {
+        const CWClockfaceDriver* d = get(index);
+        return d ? d->name : "Unknown";
+    }
+
+    /**
      * Switch to a new clockface. Tears down the current driver (if any),
      * sets up the new one.
      *
@@ -97,6 +102,10 @@ struct CWDriverRegistry {
         if (*current && (*current)->teardown) {
             (*current)->teardown();
         }
+
+        // Clear the display before the new face draws — prevents ghost pixels
+        // from the old face bleeding through during the setup() paint.
+        display->fillScreen(0);
 
         *current = next;
         next->setup(display, dateTime);
