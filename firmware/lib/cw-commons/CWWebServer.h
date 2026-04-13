@@ -12,6 +12,7 @@
 #include "CWWebUI.h"
 #include "pages/HomePage.h"
 #include "pages/ClockPage.h"
+#include "pages/WidgetsPage.h"
 #include "pages/SyncPage.h"
 #include "pages/HardwarePage.h"
 #include "pages/UpdatePage.h"
@@ -41,6 +42,8 @@ struct ClockwiseWebServer
   std::function<void(uint8_t)> onClockfaceSwitch = nullptr;
   // Generic widget switch callback. Returns true if the widget was activated.
   std::function<bool(const String&)> onWidgetSwitch = nullptr;
+  // Returns widget runtime state JSON.
+  std::function<String()> onWidgetStateJson = nullptr;
   // Callback for live brightness apply (fixed-mode only).
   std::function<void(uint8_t)> onBrightnessChange = nullptr;
   // Callback for live 24h format toggle.
@@ -523,6 +526,11 @@ struct ClockwiseWebServer
       client.println("Content-Type: text/html");
       client.println();
       cw_sendClockPage(client);
+    } else if (method == "GET" && path == "/widgets") {
+      client.println("HTTP/1.0 200 OK");
+      client.println("Content-Type: text/html");
+      client.println();
+      cw_sendWidgetsPage(client);
     } else if (method == "GET" && path == "/sync") {
       client.println("HTTP/1.0 200 OK");
       client.println("Content-Type: text/html");
@@ -577,6 +585,11 @@ struct ClockwiseWebServer
       sendClockfaceList(client);
     } else if (method == "GET" && path == "/api/widgets") {
       sendWidgetList(client);
+    } else if (method == "GET" && path == "/api/widget-state") {
+      sendWidgetState(client);
+    } else if (method == "POST" && path == "/api/widget/show") {
+      handleWidgetShow(client, key, value);
+      return;
     } else if (method == "GET" && path == "/backup") {
       exportConfig(client);
     } else if (method == "POST" && path == "/restore") {
@@ -634,6 +647,57 @@ struct ClockwiseWebServer
                   CWWidgetManager::WIDGET_TIMER,
                   (p->activeWidget == CWWidgetManager::WIDGET_TIMER) ? "true" : "false");
     client.print("]");
+  }
+
+  void sendWidgetState(WiFiClient client) {
+    auto* p = ClockwiseParams::getInstance();
+    client.println("HTTP/1.0 200 OK");
+    client.println("Content-Type: application/json");
+    client.println();
+    if (onWidgetStateJson) {
+      client.print(onWidgetStateJson());
+      return;
+    }
+    client.print("{");
+    client.print("\"activeWidget\":\"" + p->activeWidget + "\"");
+    client.print(",\"timerRemainingSec\":0");
+    client.print(",\"clockfaceName\":\"");
+    client.print(CWDriverRegistry::name(p->clockFaceIndex));
+    client.print("\"");
+    client.print(",\"canReturnToClock\":");
+    client.print(p->activeWidget == CWWidgetManager::WIDGET_CLOCK ? "false" : "true");
+    client.print("}");
+  }
+
+  void handleWidgetShow(WiFiClient client, const String& key, String value) {
+    if (key != "spec") {
+      client.println("HTTP/1.0 400 Bad Request");
+      client.println("Content-Type: application/json");
+      client.println();
+      client.print("{\"status\":\"error\",\"message\":\"Missing spec query parameter\"}");
+      return;
+    }
+
+    urlDecode(value);
+    value.trim();
+
+    if (!onWidgetSwitch) {
+      client.println("HTTP/1.0 503 Service Unavailable");
+      client.println("Content-Type: application/json");
+      client.println();
+      client.print("{\"status\":\"error\",\"message\":\"Widget runtime unavailable\"}");
+      return;
+    }
+
+    if (!onWidgetSwitch(value)) {
+      client.println("HTTP/1.0 422 Unprocessable Entity");
+      client.println("Content-Type: application/json");
+      client.println();
+      client.print("{\"status\":\"error\",\"message\":\"Widget command rejected\"}");
+      return;
+    }
+
+    client.println("HTTP/1.0 204 No Content");
   }
 
   void readPin(WiFiClient client, String key, uint16_t pin) {

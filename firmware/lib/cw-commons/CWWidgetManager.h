@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <Adafruit_GFX.h>
+#include <functional>
 
 #include "CWClockfaceDriver.h"
 
@@ -12,6 +13,9 @@ public:
     static constexpr const char* WIDGET_NOTIFICATION = "notification";
     static constexpr const char* WIDGET_STOCKS       = "stocks";
     static constexpr const char* WIDGET_TIMER        = "timer";
+
+    // Optional callback fired when active widget changes.
+    std::function<void(const String&)> onWidgetChanged = nullptr;
 
     void begin(Adafruit_GFX* display, CWDateTime* dateTime,
                const CWClockfaceDriver** currentClockface) {
@@ -36,6 +40,7 @@ public:
         _activeClockfaceIndex = clockfaceIndex;
         _timerEndMs = 0;
         _timerLastDrawSec = UINT32_MAX;
+        notifyWidgetChanged();
         return true;
     }
 
@@ -84,6 +89,15 @@ public:
         return _activeClockfaceIndex;
     }
 
+    uint32_t timerRemainingSeconds() const {
+        if (_activeWidget != WIDGET_TIMER) return 0;
+        return remainingTimerSeconds();
+    }
+
+    bool canReturnToClock() const {
+        return _activeWidget != WIDGET_CLOCK;
+    }
+
     static bool isKnownWidget(const String& name) {
         String normalized = name;
         normalized.toLowerCase();
@@ -108,6 +122,7 @@ private:
         _timerEndMs = millis() + (durationSecs * 1000UL);
         _timerLastDrawSec = UINT32_MAX;
         drawTimer(remainingTimerSeconds());
+        notifyWidgetChanged();
         ESP_LOGI("Widget", "Timer widget activated for %lu seconds", (unsigned long)durationSecs);
         return true;
     }
@@ -137,8 +152,8 @@ private:
         if (!_display) return;
         uint32_t mins = remainingSecs / 60;
         uint32_t secs = remainingSecs % 60;
-        char mmss[6];
-        snprintf(mmss, sizeof(mmss), "%02lu:%02lu", (unsigned long)mins, (unsigned long)secs);
+        char mmss[16];
+        snprintf(mmss, sizeof(mmss), "%lu:%02lu", (unsigned long)mins, (unsigned long)secs);
 
         _display->fillScreen(0);
         _display->setTextWrap(false);
@@ -165,6 +180,12 @@ private:
         *nameOut = normalized.substring(0, sep);
         String value = normalized.substring(sep + 1);
         *timerSecsOut = (uint32_t)value.toInt();
+    }
+
+    void notifyWidgetChanged() {
+        if (onWidgetChanged) {
+            onWidgetChanged(_activeWidget);
+        }
     }
 
     static bool isPlaceholderWidget(const String& normalizedName) {

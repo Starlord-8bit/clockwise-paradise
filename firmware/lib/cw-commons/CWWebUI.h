@@ -59,6 +59,7 @@ static const char NAV_FMT[] PROGMEM = R""""(
 <div class="nav">
   <a href="/" %s>🏠 Home</a>
   <a href="/clock" %s>🕐 Clock</a>
+  <a href="/widgets" %s>🧩 Widgets</a>
   <a href="/sync" %s>🔗 Sync</a>
   <a href="/hardware" %s>🔧 Hardware</a>
   <a href="/update" %s>⬆ Update</a>
@@ -95,8 +96,8 @@ static const char PAGE_FOOT[] PROGMEM = "</body></html>";
 
 inline void cw_sendNav(WiFiClient& client, const char* active) {
   auto cls = [&](const char* name){ return (active && strcmp(active,name)==0) ? "class=\"active\"" : ""; };
-  char buf[512];
-  snprintf(buf, sizeof(buf), NAV_FMT, cls("home"), cls("clock"), cls("sync"), cls("hardware"), cls("update"));
+  char buf[640];
+  snprintf(buf, sizeof(buf), NAV_FMT, cls("home"), cls("clock"), cls("widgets"), cls("sync"), cls("hardware"), cls("update"));
   client.print(buf);
 }
 

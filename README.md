@@ -90,6 +90,19 @@ List widgets:
 curl http://<device-ip>/api/widgets
 ```
 
+Read runtime widget state:
+
+```bash
+curl http://<device-ip>/api/widget-state
+```
+
+Show a widget via unified runtime command endpoint:
+
+```bash
+curl -X POST "http://<device-ip>/api/widget/show?spec=clock"
+curl -X POST "http://<device-ip>/api/widget/show?spec=timer:90"
+```
+
 Switch to clock widget:
 
 ```bash
@@ -116,6 +129,12 @@ Payload examples:
 
 - `clock`
 - `timer:120`
+
+### Web UI
+
+- New page: `/widgets`
+- Runtime strip shows active widget, timer remaining, and command status.
+- Widget cards provide one-click activation.
 
 ---
 

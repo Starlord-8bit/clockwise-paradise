@@ -17,7 +17,9 @@ ifeq ($(strip $(CMAKE_BIN)),)
 CMAKE_BIN := $(VCMAKE_BIN)
 endif
 
-VERSION   := $(shell git describe --tags --always --dirty)
+# Artifact tag should follow firmware version source-of-truth (version.txt),
+# not git-describe commit distance, so hardware test logs stay unambiguous.
+VERSION   := $(shell V=$$(cat version.txt 2>/dev/null | tr -d '[:space:]'); if [ -n "$$V" ]; then echo "$$V" | sed 's/^[vV]\{0,1\}/v/'; else git describe --tags --always --dirty; fi)
 BUILD_DIR := build/compile
 DIST_DIR  := build/$(VERSION)
 
@@ -86,11 +88,13 @@ check: test build
 
 ## Flash over USB using auto-reset sequencing (requires: pip install esptool pyserial)
 ## Override port: make flash PORT=/dev/ttyACM0
+## For Wi-Fi OTA (no USB cable), use: make flash-ota
 flash:
 	@test -f $(DIST_APP) || (echo "No firmware found — run 'make build' first"; exit 1)
+	@test -n "$(PORT)" || (echo "No serial port — set PORT in .env or pass PORT=/dev/ttyUSB0"; echo "For Wi-Fi OTA, use: make flash-ota"; exit 1)
 	python3 scripts/flash.py \
-	  --port   $(PORT) \
-	  --baud   $(BAUD) \
+	  --port   "$(PORT)" \
+	  --baud   "$(or $(BAUD),460800)" \
 	  --bootloader      $(DIST_BOOT) \
 	  --partition-table $(DIST_PART) \
 	  --app    $(DIST_APP)
