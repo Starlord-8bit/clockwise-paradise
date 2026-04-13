@@ -108,7 +108,7 @@ Rules for agents:
 
 ## Notes
 
-- Skill filenames should be kebab-case, matching the slash command: `my-skill.md` → `/my-skill`
+- Skill filenames should be kebab-case, matching the slash command: `my-skill.md` -> `/my-skill`
 - Agent filenames should be kebab-case: `reviewer-firmware.md`
 - Keep skills focused — one skill per concern. A skill that does 5 unrelated things is
   really 5 skills.

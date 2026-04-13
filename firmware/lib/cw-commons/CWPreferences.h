@@ -44,6 +44,10 @@ struct ClockwiseParams
     // Night mode strategy
     const char* const PREF_NIGHT_MODE      = "nightMode";      // 0=nothing, 1=off, 2=big clock
     const char* const PREF_NIGHT_LEVEL     = "nightLevel";     // 1-5 brightness for big clock
+    const char* const PREF_NIGHT_TRIGGER   = "nightTrig";      // 0=time window, 1=ldr threshold
+    const char* const PREF_NIGHT_LDR_THRES = "nightLdrThr";    // ADC threshold (0-4095)
+    const char* const PREF_NIGHT_ACTION    = "nightAction";    // 0=display off, 1=min brightness
+    const char* const PREF_NIGHT_MIN_BRT   = "nightMinBr";     // min brightness when action=1
     const char* const PREF_SUPER_COLOR     = "superColor";     // RGB565 digit color for big clock
     const char* const PREF_BIGCLOCK_SERVER = "bigclockSrv";
     const char* const PREF_BIGCLOCK_FILE   = "bigclockFile";
@@ -107,6 +111,10 @@ struct ClockwiseParams
     // Night mode
     uint8_t  nightMode;       // 0=nothing, 1=off, 2=big clock
     uint8_t  nightLevel;      // 1-5 brightness for big clock
+    uint8_t  nightTrigger;    // 0=time window, 1=ldr threshold
+    uint16_t nightLdrThres;   // ADC threshold (0-4095)
+    uint8_t  nightAction;     // 0=display off, 1=min brightness
+    uint8_t  nightMinBr;      // min brightness when nightAction=1
     uint16_t superColor;      // RGB565 digit color
     String   bigclockServer;
     String   bigclockFile;
@@ -167,6 +175,10 @@ struct ClockwiseParams
         preferences.putUInt(PREF_NIGHT_BRIGHT, nightBright);
         preferences.putUInt(PREF_NIGHT_MODE, nightMode);
         preferences.putUInt(PREF_NIGHT_LEVEL, nightLevel);
+        preferences.putUInt(PREF_NIGHT_TRIGGER, nightTrigger);
+        preferences.putUInt(PREF_NIGHT_LDR_THRES, nightLdrThres);
+        preferences.putUInt(PREF_NIGHT_ACTION, nightAction);
+        preferences.putUInt(PREF_NIGHT_MIN_BRT, nightMinBr);
         preferences.putUInt(PREF_SUPER_COLOR, superColor);
         preferences.putString(PREF_BIGCLOCK_SERVER, bigclockServer);
         preferences.putString(PREF_BIGCLOCK_FILE, bigclockFile);
@@ -236,6 +248,10 @@ struct ClockwiseParams
         nightBright   = preferences.getUInt(PREF_NIGHT_BRIGHT, 8);
         nightMode     = preferences.getUInt(PREF_NIGHT_MODE, 0);
         nightLevel    = preferences.getUInt(PREF_NIGHT_LEVEL, 1);
+        nightTrigger  = preferences.getUInt(PREF_NIGHT_TRIGGER, 0);
+        nightLdrThres = preferences.getUInt(PREF_NIGHT_LDR_THRES, 128);
+        nightAction   = preferences.getUInt(PREF_NIGHT_ACTION, 0);
+        nightMinBr    = preferences.getUInt(PREF_NIGHT_MIN_BRT, 8);
         superColor    = preferences.getUInt(PREF_SUPER_COLOR, 16936);
         bigclockServer = preferences.getString(PREF_BIGCLOCK_SERVER, "raw.githubusercontent.com");
         bigclockFile   = preferences.getString(PREF_BIGCLOCK_FILE, "clockwise-paradise/main/clockfaces/bigclock");

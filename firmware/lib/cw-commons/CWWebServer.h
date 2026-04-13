@@ -23,12 +23,13 @@
 #include "CWClockfaceDriver.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
+#include "esp_timer.h"
 
 #ifndef CLOCKFACE_NAME
   #define CLOCKFACE_NAME "UNKNOWN"
 #endif
 
-WiFiServer server(80);
+extern WiFiServer server;
 
 struct ClockwiseWebServer
 {
@@ -473,12 +474,16 @@ struct ClockwiseWebServer
       { "nightBright",     &ClockwiseParams::nightBright },
       { "nightMode",       &ClockwiseParams::nightMode },
       { "nightLevel",      &ClockwiseParams::nightLevel },
+      { "nightTrig",       &ClockwiseParams::nightTrigger },
+      { "nightAction",     &ClockwiseParams::nightAction },
+      { "nightMinBr",      &ClockwiseParams::nightMinBr },
     };
     for (const auto& s : U8S) if (key == s.k) { p->*(s.f) = (uint8_t)value.toInt(); return true; }
 
     static const SettU16 U16S[] = {
       { "superColor", &ClockwiseParams::superColor },
       { "mqttPort",   &ClockwiseParams::mqttPort },
+      { "nightLdrThr", &ClockwiseParams::nightLdrThres },
     };
     for (const auto& s : U16S) if (key == s.k) { p->*(s.f) = (uint16_t)value.toInt(); return true; }
 
@@ -744,6 +749,10 @@ struct ClockwiseWebServer
     json += "\"nightBright\":"   + String(p->nightBright)             + ",";
     json += "\"nightMode\":"     + String(p->nightMode)               + ",";
     json += "\"nightLevel\":"    + String(p->nightLevel)              + ",";
+    json += "\"nightTrig\":"     + String(p->nightTrigger)            + ",";
+    json += "\"nightLdrThr\":"   + String(p->nightLdrThres)           + ",";
+    json += "\"nightAction\":"   + String(p->nightAction)             + ",";
+    json += "\"nightMinBr\":"    + String(p->nightMinBr)              + ",";
     json += "\"superColor\":"    + String(p->superColor)              + ",";
     json += "\"mqttEnabled\":"   + String(p->mqttEnabled ? 1 : 0)    + ",";
     json += "\"mqttBroker\":\""  + p->mqttBroker                      + "\",";
@@ -806,6 +815,10 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_NIGHT_BRIGHT, ClockwiseParams::getInstance()->nightBright);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_NIGHT_MODE, ClockwiseParams::getInstance()->nightMode);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_NIGHT_LEVEL, ClockwiseParams::getInstance()->nightLevel);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_NIGHT_TRIGGER, ClockwiseParams::getInstance()->nightTrigger);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_NIGHT_LDR_THRES, ClockwiseParams::getInstance()->nightLdrThres);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_NIGHT_ACTION, ClockwiseParams::getInstance()->nightAction);
+    client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_NIGHT_MIN_BRT, ClockwiseParams::getInstance()->nightMinBr);
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_SUPER_COLOR, ClockwiseParams::getInstance()->superColor);
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_BIGCLOCK_SERVER, ClockwiseParams::getInstance()->bigclockServer.c_str());
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_BIGCLOCK_FILE, ClockwiseParams::getInstance()->bigclockFile.c_str());
@@ -823,6 +836,8 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", CLOCKFACE_NAME);
     // Device IP address — useful for status display
     client.printf(HEADER_TEMPLATE_S, "wifiIP", WiFi.localIP().toString().c_str());
+    uint64_t uptimeSec = (uint64_t)(esp_timer_get_time() / 1000000ULL);
+    client.printf(HEADER_TEMPLATE_D, "uptimeSec", (uint32_t)uptimeSec);
     client.println();
   }
 

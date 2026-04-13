@@ -3,8 +3,8 @@
 #include "Macros.h"
 
 
-const struct 
-{ 
+const struct
+{
    static uint16_t adjustBright(uint16_t color, uint8_t bright) {
 
         uint8_t r = ((color >> 11) & 0x1F);
@@ -20,7 +20,7 @@ const struct
    }
 
    static uint16_t brighter(uint16_t color, uint8_t factor) {
-        
+
         uint8_t r = ((color >> 11) & 0x1F);
         uint8_t g = ((color >> 5) & 0x3F);
         uint8_t b = (color & 0x1F);
@@ -28,13 +28,6 @@ const struct
         uint8_t newRed   = MIN(trunc(r * (factor / 10)), 255);
         uint8_t newGreen = MIN(trunc(g * (factor / 10)), 255);
         uint8_t newBlue  = MIN(trunc(b * (factor / 10)), 255);
-
-        
-        // Serial.printf("Old RGB %d %d %d\n", r, g, b);
-        // Serial.printf("New RGB %d %d %d\n", newRed, newGreen, newBlue);
-        // delay(1000);
-
-
 
         return color565(newRed, newGreen, newBlue);
 

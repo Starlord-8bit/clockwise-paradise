@@ -20,24 +20,16 @@ inline void cw_sendHomePage(WiFiClient& client) {
     <div class="row"><label>HA Discovery</label><div class="ctrl"><span class="small" id="ha-status">⚠ Not implemented</span></div></div>
   </div>
 
-  <div class="section">
-    <div class="section-title">Quick actions</div>
-    <div class="footer">
-      <a class="btn btn-secondary" href="/clock">🕐 Clock</a>
-      <a class="btn btn-secondary" href="/widgets">🧩 Widgets</a>
-      <a class="btn btn-secondary" href="/sync">🔗 Sync</a>
-      <a class="btn btn-secondary" href="/hardware">🔧 Hardware</a>
-      <a class="btn btn-primary" href="/update">⬆ Update</a>
-      <button class="btn btn-secondary" onclick="location.href='/backup'">⬇ Backup</button>
-      <button class="btn btn-danger" onclick="if(confirm('Reboot device?'))restart()">⚡ Reboot</button>
-    </div>
-  </div>
-
   <script>
   function $(id){return document.getElementById(id)}
   var devTZ = 'UTC';
-  var uptimeDays = 0;
-  var uptimeStart = Date.now();
+  var bootEpochMs = Date.now();
+  function fmtUptimeMinutes(totalSec){
+    var days = Math.floor(totalSec / 86400);
+    var hrs = Math.floor((totalSec % 86400) / 3600);
+    var mins = Math.floor((totalSec % 3600) / 60);
+    return days+'d '+hrs+'h '+mins+'m';
+  }
   function onSettingsLoaded(h){
     $('fw-ver').textContent = (h['cw_fw_name']||'Clockwise Paradise') + ' v' + (h['cw_fw_version']||'?');
     $('cf-name').textContent = h['clockface_name'] || '?';
@@ -50,16 +42,19 @@ inline void cw_sendHomePage(WiFiClient& client) {
       ? '✅ Enabled — broker: ' + (h['mqttbroker']||'?')
       : '❌ Disabled';
     devTZ = h['timezone'] || 'UTC';
-    uptimeDays = parseInt(h['totaldays']||'0', 10);
+    var uptimeSec = parseInt(h['uptimesec']||'0', 10);
+    if (Number.isFinite(uptimeSec) && uptimeSec >= 0) {
+      bootEpochMs = Date.now() - (uptimeSec * 1000);
+      $('uptime').textContent = fmtUptimeMinutes(uptimeSec);
+    }
   }
   function tickClock(){
-    $('dev-time').textContent = new Date().toLocaleString('en-GB',{timeZone:devTZ,hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    $('dev-time').textContent = new Date().toLocaleTimeString('en-GB',{timeZone:devTZ,hour12:false,hourCycle:'h23',hour:'2-digit',minute:'2-digit'});
   }
   tickClock(); setInterval(tickClock, 1000);
   setInterval(function(){
-    var s = Math.floor((Date.now()-uptimeStart)/1000);
-    var hrs=Math.floor(s/3600), mins=Math.floor((s%3600)/60), secs=s%60;
-    $('uptime').textContent = uptimeDays+'d '+hrs+'h '+mins+'m '+secs+'s';
+    var s = Math.max(0, Math.floor((Date.now()-bootEpochMs)/1000));
+    $('uptime').textContent = fmtUptimeMinutes(s);
   }, 1000);
   </script>
   )HTML");

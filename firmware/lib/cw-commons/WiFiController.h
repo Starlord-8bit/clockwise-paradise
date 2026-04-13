@@ -8,7 +8,7 @@
 #include <WiFiManager.h>
 #include "esp_log.h"
 
-ImprovWiFi improvSerial(&Serial);
+extern ImprovWiFi improvSerial;
 
 struct WiFiController
 {

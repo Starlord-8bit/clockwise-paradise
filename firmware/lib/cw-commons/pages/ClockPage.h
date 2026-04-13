@@ -45,22 +45,27 @@ inline void cw_sendClockPage(WiFiClient& client) {
     </div>
 
     <div class="row">
-      <label>Brightness <span id="brightVal" class="ver-badge">50</span></label>
+      <label>Manual brightness <span id="brightVal" class="ver-badge">50%</span></label>
       <div class="ctrl">
-        <input type="range" id="displayBright" min="0" max="255" value="50"
-          oninput="$('brightVal').textContent=this.value">
+        <input type="checkbox" id="manualMode">
+        <label for="manualMode"> Manual mode</label>
+        <input type="range" id="displayBright" min="0" max="100" value="50"
+          oninput="$('brightVal').textContent=this.value+'%'">
+        <div class="hint">Used when Manual mode is enabled.</div>
       </div>
     </div>
 
     <div class="row">
-      <label>Auto-bright (LDR)</label>
+      <label>Auto brightness (LDR)</label>
       <div class="ctrl">
+        <input type="checkbox" id="autoMode">
+        <label for="autoMode"> Auto brightness</label>
         <div style="display:flex;gap:8px;align-items:center">
           <input type="number" id="autoBrightMin" min="0" max="4095" placeholder="min (dark)" style="flex:1">
           <span class="small">–</span>
           <input type="number" id="autoBrightMax" min="0" max="4095" placeholder="max (bright)" style="flex:1">
         </div>
-        <div class="hint">LDR ADC range 0–4095.</div>
+        <div class="hint">LDR calibration range, mapped to brightness.</div>
       </div>
     </div>
 
@@ -70,12 +75,18 @@ inline void cw_sendClockPage(WiFiClient& client) {
     <div class="section-title">Night mode</div>
 
     <div class="row">
-      <label>Mode</label>
+      <label>Enable night mode</label>
       <div class="ctrl">
-        <select id="nightMode">
-          <option value="0">Off</option>
-          <option value="1">Schedule</option>
-          <option value="2">Always dim</option>
+        <input type="checkbox" id="nightEnable">
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Trigger</label>
+      <div class="ctrl">
+        <select id="nightTrig">
+          <option value="0">Time window</option>
+          <option value="1">LDR threshold</option>
         </select>
       </div>
     </div>
@@ -87,6 +98,32 @@ inline void cw_sendClockPage(WiFiClient& client) {
           <input type="number" id="nightStartH" min="0" max="23" placeholder="HH" style="flex:1">
           <input type="number" id="nightStartM" min="0" max="59" placeholder="MM" style="flex:1">
         </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>LDR threshold</label>
+      <div class="ctrl">
+        <input type="number" id="nightLdrThr" min="0" max="4095" placeholder="128">
+      </div>
+    </div>
+
+    <div class="row">
+      <label>When triggered</label>
+      <div class="ctrl">
+        <select id="nightAction">
+          <option value="0">Display off</option>
+          <option value="1">Set minimum brightness</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Night minimum brightness</label>
+      <div class="ctrl">
+        <input type="range" id="nightMinBr" min="0" max="100" value="8"
+          oninput="$('nightMinBrVal').textContent=this.value+'%'">
+        <div class="hint" id="nightMinBrVal">8%</div>
       </div>
     </div>
 
@@ -118,16 +155,41 @@ inline void cw_sendClockPage(WiFiClient& client) {
     $('clockFace').dataset.orig = $('clockFace').value;
     $('autoChange').value  = h['autochange']||'0';
     $('use24h').checked    = (h['use24hformat']==='1');
-    var bv = h['displaybright']||'50';
-    $('displayBright').value = bv; $('brightVal').textContent = bv;
+    var displayRaw = parseInt(h['displaybright']||'50', 10);
+    var displayPct = Math.round((displayRaw * 100) / 255);
+    $('displayBright').value = String(displayPct);
+    $('brightVal').textContent = displayPct + '%';
+
+    var method = parseInt(h['brightmethod']||'2', 10);
+    $('autoMode').checked = (method === 0);
+    $('manualMode').checked = (method === 2);
+
     $('autoBrightMin').value  = h['autobrightmin']||'';
     $('autoBrightMax').value  = h['autobrightmax']||'';
-    $('nightMode').value    = h['nightmode']||'0';
+
+    $('nightEnable').checked = (h['nightmode']||'0') !== '0';
+    $('nightTrig').value = h['nighttrig']||'0';
+    $('nightLdrThr').value = h['nightldrthr']||'128';
+    $('nightAction').value = h['nightaction']||'0';
+    var nightMinRaw = parseInt(h['nightminbr']||'8', 10);
+    var nightMinPct = Math.round((nightMinRaw * 100) / 255);
+    $('nightMinBr').value = String(nightMinPct);
+    $('nightMinBrVal').textContent = nightMinPct + '%';
+
     $('nightStartH').value  = h['nightstarth']||'';
     $('nightStartM').value  = h['nightstartm']||'';
     $('nightEndH').value    = h['nightendh']||'';
     $('nightEndM').value    = h['nightendm']||'';
   }
+
+  document.addEventListener('DOMContentLoaded', function(){
+    document.getElementById('autoMode').addEventListener('change', function(){
+      if (this.checked) document.getElementById('manualMode').checked = false;
+    });
+    document.getElementById('manualMode').addEventListener('change', function(){
+      if (this.checked) document.getElementById('autoMode').checked = false;
+    });
+  });
 
   async function applyClock(){
     try{
@@ -135,13 +197,25 @@ inline void cw_sendClockPage(WiFiClient& client) {
       var cfChanged = $('clockFace').value !== $('clockFace').dataset.orig;
       await setKey('autoChange',     $('autoChange').value);
       await setKey('use24hFormat',   $('use24h').checked?1:0);
-      await setKey('displayBright',  $('displayBright').value);
+      var displayBrightRaw = Math.round((parseInt($('displayBright').value || '0', 10) * 255) / 100);
+      await setKey('displayBright',  displayBrightRaw);
+
+      var brightMethod = 1;
+      if ($('autoMode').checked) brightMethod = 0;
+      else if ($('manualMode').checked) brightMethod = 2;
+      await setKey('brightMethod', brightMethod);
+
       if($('autoBrightMin').value!=='' && $('autoBrightMax').value!==''){
         var minv = String($('autoBrightMin').value).padStart(4,'0');
         var maxv = String($('autoBrightMax').value).padStart(4,'0');
         await setKey('autoBright', minv+','+maxv);
       }
-      await setKey('nightMode',   $('nightMode').value);
+      await setKey('nightMode', $('nightEnable').checked ? 1 : 0);
+      await setKey('nightTrig', $('nightTrig').value);
+      if($('nightLdrThr').value!=='') await setKey('nightLdrThr', $('nightLdrThr').value);
+      await setKey('nightAction', $('nightAction').value);
+      var nightMinRaw = Math.round((parseInt($('nightMinBr').value || '0', 10) * 255) / 100);
+      await setKey('nightMinBr', nightMinRaw);
       if($('nightStartH').value!=='') await setKey('nightStartH', $('nightStartH').value);
       if($('nightStartM').value!=='') await setKey('nightStartM', $('nightStartM').value);
       if($('nightEndH').value!=='')   await setKey('nightEndH',   $('nightEndH').value);

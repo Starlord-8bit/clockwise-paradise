@@ -23,8 +23,8 @@
  *   - update(): called every loop iteration while this face is active
  *   - teardown() [optional]: release resources (set ptrs to null, etc.)
  *
- * NOTE: setup() is called once per activation, NOT once per boot.
- *       Drivers must handle being called setup() → teardown() → setup() repeatedly.
+ * setup() runs per activation, not per boot.
+ * Drivers must support repeated setup() → teardown() → setup() cycles.
  */
 
 #include <Arduino.h>

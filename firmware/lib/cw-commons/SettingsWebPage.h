@@ -2,9 +2,7 @@
 
 #include <Arduino.h>
 
-// TODO: Move the whole JS to a CDN soon
-
-const char SETTINGS_PAGE[] PROGMEM = R""""(
+const char SETTINGS_PAGE[] PROGMEM = R"""(
 <!DOCTYPE html>
 <html>
 <title>Clockwise Settings</title>
@@ -13,25 +11,39 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <link rel="shortcut icon" type="image/x-icon"
   href="https://github.com/jnthas/clockwise/raw/gh-pages/static/images/favicon.png">
+<style>
+  body, .w3-bar-item, .w3-button, input, select { font-size: 32px !important; }
+  h1, h2, h3, h4 { font-size: 2.4em !important; }
+  p { font-size: 32px; line-height: 1.5em; }
+  label { font-size: 28px; }
+  .w3-container, .w3-bar { text-align: center; }
+  .nav-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; padding: 8px; }
+  .w3-bar-item { margin: 4px; }
+  .action-buttons { justify-content: center !important; }
+</style>
 
 <body>
   <div class="w3-container" style="background-image: linear-gradient(120deg, #155799, #159957);">
     <img class="w3-animate-zoom w3-padding w3-image"
-      src="data:image/png;base64,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" alt="Logo"
+      src="data:image/png;base64,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" alt="Logo"
       style="width:20%">
   </div>
 
-  <div class="w3-bar w3-black w3-medium">
-    <div id="fw-version" class="w3-bar-item w3-black w3-hover-red"></div>
-    <div id="ssid" class="w3-bar-item w3-hover-blue w3-right"></div>
-    <div class="w3-bar-item w3-button w3-hover-green w3-right" onclick="checkUpdate()"><i class='fa fa-refresh'></i> Check Update</div>
-    <div class="w3-bar-item w3-button w3-hover-red w3-right" onclick="document.getElementById('uploadBinInput').click()"><i class='fa fa-upload'></i> Upload .bin</div>
+  <div class="w3-bar w3-black nav-actions">
+    <div id="fw-version" class="w3-bar-item"></div>
+    <div id="ssid" class="w3-bar-item"></div>
+  </div>
+
+  <div class="w3-bar w3-black nav-actions">
+    <div class="w3-bar-item w3-button w3-hover-green" onclick="checkUpdate()" style="margin: 4px;"><i class='fa fa-refresh'></i> Check Update</div>
+    <div class="w3-bar-item w3-button w3-hover-red" onclick="document.getElementById('uploadBinInput').click()" style="margin: 4px;"><i class='fa fa-upload'></i> Upload .bin</div>
     <input type='file' id='uploadBinInput' accept='.bin' style='display:none' onchange='uploadBin(this)'>
-    <div class="w3-bar-item w3-button w3-hover-teal w3-right" onclick="backupConfig()"><i class='fa fa-download'></i> Backup</div>
-    <div class="w3-bar-item w3-button w3-hover-orange w3-right" onclick="document.getElementById('restoreInput').click()"><i class='fa fa-upload'></i> Restore</div>
+    <div class="w3-bar-item w3-button w3-hover-teal" onclick="backupConfig()" style="margin: 4px;"><i class='fa fa-download'></i> Backup</div>
+    <div class="w3-bar-item w3-button w3-hover-orange" onclick="document.getElementById('restoreInput').click()" style="margin: 4px;"><i class='fa fa-upload'></i> Restore</div>
     <input type='file' id='restoreInput' accept='.json' style='display:none' onchange='restoreConfig(this)'>
-    <div class="w3-bar-item w3-button w3-hover-yellow w3-right" onclick="restartDevice();"><i class='fa fa-power-off'></i> Restart</div>
-    <div id="status" class="w3-bar-item w3-green" style="display:none"><i class='fa fa-floppy-o'></i> Saved! Restart your device</div>
+    <div class="w3-bar-item w3-button w3-hover-yellow" onclick="restartDevice();" style="margin: 4px;"><i class='fa fa-power-off'></i> Restart</div>
+    <div id="status" class="w3-bar-item w3-green" style="display:none; margin: 4px;"><i class='fa fa-floppy-o'></i> Saved!</div>
   </div>
 
   <div class="w3-row-padding w3-padding">
@@ -44,7 +56,7 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
           <p style="min-height: 45px;" id="description">{{DESCRIPTION}}</p>
           <hr>
           <div class="w3-row w3-section">
-            <div class="w3-col" style="width:50px"><i id="icon" class="w3-xxlarge w3-text-dark-grey fa"></i>
+            <div class="w3-col" style="width:60px"><i id="icon" class="w3-xxlarge w3-text-dark-grey fa"></i>
             </div>
             <div class="w3-rest" id="formInput">
               {{FORM_INPUT}}
@@ -57,230 +69,63 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
   </div>
   <script>
     function createCards(settings) {
-      console.log(settings);
-      const cards = [
-        {
-          title: "Clockface",
-          description: "Select which clockface to display. Canvas clockface supports runtime JSON themes from a local server.",
-          formInput: "<select name='clockFace' id='clockFace'><option value='1'" + (settings.clockface_name == 'cw-cf-0x01' ? " selected='selected'" : "") + ">Super Mario</option><option value='2'" + (settings.clockface_name == 'cw-cf-0x02' ? " selected='selected'" : "") + ">Time in Words</option><option value='3'" + (settings.clockface_name == 'cw-cf-0x03' ? " selected='selected'" : "") + ">World Map</option><option value='4'" + (settings.clockface_name == 'cw-cf-0x04' ? " selected='selected'" : "") + ">Castlevania</option><option value='5'" + (settings.clockface_name == 'cw-cf-0x05' ? " selected='selected'" : "") + ">Pac-Man</option><option value='6'" + (settings.clockface_name == 'cw-cf-0x06' ? " selected='selected'" : "") + ">Pokedex</option><option value='7'" + (settings.clockface_name == 'cw-cf-0x07' ? " selected='selected'" : "") + ">Canvas</option></select>",
-          icon: "fa-television",
-          save: "updatePreference('clockFaceIndex', parseInt(clockFace.value) - 1)",
-          property: "clockFaceIndex"
-        },
-        {
-          title: "Auto-change Clockface",
-          description: "Automatically change the clockface at midnight each day.",
-          formInput: "<select name='autoChange' id='autoChange'><option value='0'" + (settings.autochange == 0 ? " selected='selected'" : "") + ">Off</option><option value='1'" + (settings.autochange == 1 ? " selected='selected'" : "") + ">Sequence</option><option value='2'" + (settings.autochange == 2 ? " selected='selected'" : "") + ">Random</option></select>",
-          icon: "fa-exchange",
-          save: "updatePreference('autoChange', autoChange.value)",
-          property: "autoChange"
-        },
-        {
-          title: "Display Bright",
-          description: "0 = dark (display off) / 255 = super bright | Value: <strong><output id='rangevalue'>" + settings.displaybright + "</output></strong>",
-          formInput: "<input class='w3-input w3-border' type='range' min='0' max='255' value='" + settings.displaybright + "' class='slider' id='bright' oninput='rangevalue.value=value'>",
-          icon: "fa-adjust",
-          save: "updatePreference('displayBright', bright.value)",
-          property: "displayBright"
-        },
-        {
-          title: "Use 24h format?",
-          description: "Changes the hour format to show 20:00 instead of 8:00PM",
-          formInput: "<input class='w3-check' type='checkbox' id='use24h' " + (settings.use24hformat == '1' ? "checked" : "") + "><label for='use24h'> Yep</label>",
-          icon: "fa-clock-o",
-          save: "updatePreference('use24hFormat', Number(use24h.checked))",
-          property: "use24hFormat"
-        },
-        {
-          title: "Swap Blue/Green pins?",
-          description: "Swap Blue and Green pins because the panel is RBG instead of RGB",
-          formInput: "<input class='w3-check' type='checkbox' id='swapBG' " + (settings.swapbluegreen == '1' ? "checked" : "") + "><label for='swapBG'> Yep</label>",
-          icon: "fa-random",
-          save: "updatePreference('swapBlueGreen', Number(swapBG.checked))",
-          property: "swapBlueGreen"
-        },
-        {
-          title: "Swap Blue/Red pins?",
-          description: "Swap Blue and Red pins",
-          formInput: "<input class='w3-check' type='checkbox' id='swapBR' " + (settings.swapbluered == '1' ? "checked" : "") + "><label for='swapBR'> Yep</label>",
-          icon: "fa-random",
-          save: "updatePreference('swapBlueRed', Number(swapBR.checked))",
-          property: "swapBlueRed"
-        },
-        {
-          title: "LED Colour Order",
-          description: "Select the colour order of your LED panel. RGB is standard; use RBG if blue and green are swapped, GBR if green and red are swapped.",
-          formInput: "<select name='ledColorOrder' id='ledColorOrder'><option value='0'" + (settings.ledcolororder == 0 ? " selected='selected'" : "") + ">RGB (default)</option><option value='1'" + (settings.ledcolororder == 1 ? " selected='selected'" : "") + ">RBG</option><option value='2'" + (settings.ledcolororder == 2 ? " selected='selected'" : "") + ">GBR</option></select>",
-          icon: "fa-random",
-          save: "updatePreference('ledColorOrder', ledColorOrder.value)",
-          property: "ledColorOrder"
-        },
-        {
-          title: "Reverse Phase",
-          description: "Enable if your LED panel shows ghosting or misaligned pixels. Inverts the clock phase signal.",
-          formInput: "<input class='w3-check' type='checkbox' id='reversePhase' " + (settings.reversephase == '1' ? "checked" : "") + "><label for='reversePhase'> Enable</label>",
-          icon: "fa-adjust",
-          save: "updatePreference('reversePhase', Number(reversePhase.checked))",
-          property: "reversePhase"
-        },
-        {
-          title: "Auto-change Clockface",
-          description: "Automatically change the clockface at midnight each day.",
-          formInput: "<select name='autoChange' id='autoChange'><option value='0'" + (settings.autochange == 0 ? " selected='selected'" : "") + ">Off</option><option value='1'" + (settings.autochange == 1 ? " selected='selected'" : "") + ">Sequence</option><option value='2'" + (settings.autochange == 2 ? " selected='selected'" : "") + ">Random</option></select>",
-          icon: "fa-exchange",
-          save: "updatePreference('autoChange', autoChange.value)",
-          property: "autoChange"
-        },        
-        {
-          title: "Timezone",
-          description: "Consult your TZ identifier <a href='https://en.wikipedia.org/wiki/List_of_tz_database_time_zones'>here.</a> Examples: America/Sao_Paulo, Europe/Lisbon",
-          formInput: "<input id='tz' class='w3-input w3-light-grey' name='tz' type='text' placeholder='Timezone' value='" + settings.timezone + "'>",
-          icon: "fa-globe",
-          save: "updatePreference('timeZone', tz.value)",
-          property: "timeZone"
-        },
-        {
-          title: "NTP Server",
-          description: "Configure your prefered NTP Server. You can use one of the <a href='https://www.ntppool.org'>NTP Pool Project</a> pools or a local one.",
-          formInput: "<input id='ntp' class='w3-input w3-light-grey' name='ntp' type='text' placeholder='NTP Server' value='" + settings.ntpserver + "'>",
-          icon: "fa-server",
-          save: "updatePreference('ntpServer', ntp.value)",
-          property: "ntpServer"
-        },
-        {
-          title: "Automatic Bright",
-          description: "Inform the values read by the LDR when the room is dark (min value) and bright (max value). Range 0 - 4095",
-          formInput: "<input id='autoBrightMin' class='w3-input w3-light-grey w3-cell w3-margin-right' name='autoBrightMin' style='width:45%;' type='number' min='0' max='4095' placeholder='Min value' value='" + settings.autobrightmin + "'>" + 
-                     "<input id='autoBrightMax' class='w3-input w3-light-grey w3-cell' name='autoBrightMax' style='width:45%;' type='number' min='0' max='4095' placeholder='Max value' value='" + settings.autobrightmax + "'>",
-          icon: "fa-sun-o",
-          save: "updatePreference('autoBright', autoBrightMin.value.padStart(4, '0') + ',' + autoBrightMax.value.padStart(4, '0'))",
-          property: "autoBright"
-        },
-        {
-          title: "LDR Pin",
-          description: "The GPIO pin where the LDR is connected to. Use just the numeric value (default: 35) | <a href='#' onclick='readPin(ldrPin.value);'>Read Pin: </a><strong id='ldrPinRead'>0</strong>",
-          formInput: "<input id='ldrPin' class='w3-input w3-light-grey' name='ldrPin' type='number' min='0' max='39' value='" + settings.ldrpin + "'>",
-          icon: "fa-microchip",
-          save: "updatePreference('ldrPin', ldrPin.value)",
-          property: "ldrPin"
-        },
-        {
-          title: "[Canvas] Description file",
-          description: "Name of the description file to be rendered without extension.",
-          formInput: "<input id='descFile' class='w3-input w3-light-grey' name='descFile' type='text' placeholder='Description File' value='" + settings.canvasfile + "'>",
-          icon: "fa-file-image-o",
-          save: "updatePreference('canvasFile', descFile.value)",
-          property: "canvasFile",
-          exclusive: "cw-cf-0x07"
-        },
-        {
-          title: "[Canvas] Server Address",
-          description: "Server address where the description files are located. Change this to test it locally.",
-          formInput: "<input id='serverAddress' class='w3-input w3-light-grey' name='serverAddress' type='text' placeholder='Canvas Server' value='" + settings.canvasserver + "'>",
-          icon: "fa-server",
-          save: "updatePreference('canvasServer', serverAddress.value)",
-          property: "canvasServer",
-          exclusive: "cw-cf-0x07"
-        },
-        {
-          title: "MQTT",
-          description: "Connect to an MQTT broker for Home Assistant integration. Publishes state every 30s. Commands: set/brightness, set/nightMode, set/clockface, restart.",
-          formInput: "Enable: <input class='w3-check' type='checkbox' id='mqttEnabled' " + (settings.mqttenabled == '1' ? "checked" : "") + "><br/>Broker: <input id='mqttBroker' class='w3-input w3-light-grey' type='text' placeholder='your-mqtt-broker' value='" + settings.mqttbroker + "'><br/>Port: <input id='mqttPort' class='w3-input w3-light-grey' type='number' value='" + (settings.mqttport || 1883) + "'><br/>User: <input id='mqttUser' class='w3-input w3-light-grey' type='text' value='" + settings.mqttuser + "'><br/>Password: <input id='mqttPass' class='w3-input w3-light-grey' type='password' value='" + settings.mqttpass + "'><br/>Topic prefix: <input id='mqttPrefix' class='w3-input w3-light-grey' type='text' placeholder='clockwise' value='" + settings.mqttprefix + "'>",
-          icon: "fa-exchange",
-          save: "updatePreference('mqttEnabled', Number(mqttEnabled.checked)); updatePreference('mqttBroker', mqttBroker.value); updatePreference('mqttPort', mqttPort.value); updatePreference('mqttUser', mqttUser.value); updatePreference('mqttPass', mqttPass.value); updatePreference('mqttPrefix', mqttPrefix.value)",
-          property: "mqtt"
-        },
-        {
-          title: "Canvas Clockface Editor",
-          description: "Design your own Canvas clockface themes. Opens the web-based editor in a new tab. Save the JSON file and serve it from a local web server.",
-          formInput: "<a href='https://jnthas.github.io/cw-canvas-editor/' target='_blank' class='w3-button w3-blue'><i class='fa fa-paint-brush'></i> Open Canvas Editor</a>",
-          icon: "fa-paint-brush",
-          save: "",
-          property: "canvasEditor",
-          exclusive: "cw-cf-0x07"
-        },
-        {
-          title: "Posix Timezone String",
-          description: "To avoid remote lookups, provide a Posix string that corresponds to your timezone. Leave empty to obtain this automatically from the server. <a href=\"https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv\">Click here for a list.</a>",
-          formInput: "<input id='posixString' class='w3-input w3-light-grey' name='posixString' type='text' placeholder='Manual Posix String' value='" + settings.manualposix + "'>",
-          icon: "fa-globe",
-          save: "updatePreference('manualPosix', posixString.value)",
-          property: "manualPosix"
-        },
-        {
-          title: "Rotation",
-          description: "Rotation of the matrix display.",
-          formInput: "<select name='rotation' id='rotation'><option value='0'" + (settings.displayrotation == 0 ? " selected='selected'" : "") + ">0</option><option value='1'" + (settings.displayrotation == 1 ? " selected='selected'" : "") + ">90</option><option value='2'" + (settings.displayrotation == 2 ? " selected='selected'" : "") + ">180</option><option value='3'" + (settings.displayrotation == 3 ? " selected='selected'" : "") + ">270</option></select>",
-          icon: "fa-rotate-right",
-          save: "updatePreference('displayRotation', rotation.value)",
-          property: "displayRotation"
-        },
-        {
-          title: "Matrix Shift Driver",
-          description: "Hardware-specific chips used to drive matrix modules (default: SHIFTREG).",
-          formInput: "<select name='driver' id='driver'><option value='0'" + (settings.driver == 0 ? " selected='selected'" : "") + ">SHIFTREG</option><option value='1'" + (settings.driver == 1 ? " selected='selected'" : "") + ">FM6124</option><option value='2'" + (settings.driver == 2 ? " selected='selected'" : "") + ">FM6126A</option><option value='3'" + (settings.driver == 3 ? " selected='selected'" : "") + ">ICN2038S</option><option value='4'" + (settings.driver == 4 ? " selected='selected'" : "") + ">MBI5124</option><option value='5'" + (settings.driver == 5 ? " selected='selected'" : "") + ">DP3246</option></select>",
-          icon: "fa-microchip",
-          save: "updatePreference('driver', driver.value)",
-          property: "driver"
-        },
-        {
-          title: "I2C Speed",
-          description: "I2S clock speed selector (default: HZ_8M).",
-          formInput: "<select name='speed' id='speed'><option value='8000000'" + (settings.i2cspeed == 8000000 ? " selected='selected'" : "") + ">HZ_8M</option><option value='16000000'" + (settings.i2cspeed == 16000000 ? " selected='selected'" : "") + ">HZ_16M</option><option value='20000000'" + (settings.i2cspeed == 20000000 ? " selected='selected'" : "") + ">HZ_20M</option></select>",
-          save: "updatePreference('i2cSpeed', speed.value)",
-          icon: "fa-microchip",
-          property: "i2cSpeed"
-        },          
-        {
-          title: "E Pin",
-          description: "E pin is Address Line E used for 64-row LED panels to select specific rows (default: 18).",
-          formInput: "<input id='E_pin' class='w3-input w3-light-grey' name='E_pin' type='number' min='0' max='32' value='" + settings.e_pin + "'>",
-          icon: "fa-microchip",
-          save: "updatePreference('E_pin', E_pin.value)",
-          property: "E_pin"
-        }        
-      ];
+      const cards = [];
+      // Clockface
+      cards.push({title:"Clockface",description:"Select which clockface to display.",formInput:"<select id='clockFace'><option value='1'>Super Mario</option><option value='2'>Time in Words</option><option value='3'>World Map</option><option value='4'>Castlevania</option><option value='5'>Pac-Man</option><option value='6'>Pokedex</option><option value='7'>Canvas</option></select>",icon:"fa-television",save:"updatePreference('clockFaceIndex',parseInt(clockFace.value)-1)",property:"clockFaceIndex"});
+      // Auto-change
+      cards.push({title:"Auto-change Clockface",description:"Automatically change the clockface at midnight.",formInput:"<select id='autoChange'><option value='0'>Off</option><option value='1'>Sequence</option><option value='2'>Random</option></select>",icon:"fa-exchange",save:"updatePreference('autoChange',autoChange.value)",property:"autoChange"});
+      // 24h format
+      cards.push({title:"Use 24h format?",description:"Show times as HH:MM without seconds",formInput:"<input class='w3-check' type='checkbox' id='use24h' "+(settings.use24hformat=='1'?"checked":"")+" ><label for='use24h'> Yes</label>",icon:"fa-clock-o",save:"updatePreference('use24hFormat',Number(use24h.checked))",property:"use24hFormat"});
+      // Uptime display
+      cards.push({title:"Device Uptime",description:"Total uptime since last successful boot",formInput:"<span style='font-size:28px;'><strong id='uptimeDisplay'>"+settings.totaldays+"</strong> days</span>",icon:"fa-heartbeat",save:"",property:"uptime",readonly:true});
+      //Manual brightness
+      cards.push({title:"Manual Brightness",description:"Fixed brightness: 0=off, 255=max | Value: <output id='rangevalue'>"+settings.displaybright+"</output>",formInput:"<input class='w3-input w3-border' type='range' min='0' max='255' value='"+settings.displaybright+"' id='bright' oninput='rangevalue.value=value'>",icon:"fa-adjust",save:"updatePreference('displayBright',bright.value)",property:"displayBright"});
+      // Auto brightness
+      cards.push({title:"Auto Brightness (LDR)",description:"Set dark/bright sensor thresholds (0-4095)",formInput:"<div>Dark Min:<br/><input id='autoBrightMin' class='w3-input' type='number' min='0' max='4095' value='"+settings.autobrightmin+"'><br/>Bright Max:<br/><input id='autoBrightMax' class='w3-input' type='number' min='0' max='4095' value='"+settings.autobrightmax+"'></div>",icon:"fa-sun-o",save:"updatePreference('autoBright',autoBrightMin.value.padStart(4,'0')+','+autoBrightMax.value.padStart(4,'0'))",property:"autoBright"});
+      // Night mode
+      cards.push({title:"Night Mode",description:"Reduce brightness during sleep hours",formInput:"<input class='w3-check' type='checkbox' id='nightModeEnable' "+(settings.nightmode=='1'?"checked":"")+" ><label for='nightModeEnable'> Enable</label><br/><div style='margin-top:16px;'><strong>Time Range:</strong><br/>Start: <input id='nightStartH' type='number' min='0' max='23' style='width:60px;' value='"+settings.nightstarth+"'>:<input id='nightStartM' type='number' min='0' max='59' style='width:60px;' value='"+settings.nightstartm+"'><br/>End: <input id='nightEndH' type='number' min='0' max='23' style='width:60px;' value='"+settings.nightendh+"'>:<input id='nightEndM' type='number' min='0' max='59' style='width:60px;' value='"+settings.nightendm+"'><br/><strong>Brightness:</strong><br/><input id='nightBright' type='number' min='0' max='255' style='width:100%;' value='"+settings.nightbright+"'></div>",icon:"fa-moon-o",save:"updatePreference('nightMode',Number(nightModeEnable.checked));updatePreference('nightStartH',nightStartH.value);updatePreference('nightStartM',nightStartM.value);updatePreference('nightEndH',nightEndH.value);updatePreference('nightEndM',nightEndM.value);updatePreference('nightBright',nightBright.value)",property:"nightSettings"});
+      // Timezone dropdown
+      var tzSelect = "<select id='tz' class='w3-input w3-light-grey'>";
+      ['UTC','America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Toronto','America/Mexico_City','America/Sao_Paulo','Europe/London','Europe/Paris','Europe/Berlin','Europe/Rome','Europe/Moscow','Asia/Dubai','Asia/Tokyo','Australia/Sydney','Pacific/Auckland'].forEach(tz=>{tzSelect+="<option value='"+tz+"' "+(settings.timezone==tz?"selected":"")+">"+tz+"</option>";});
+      tzSelect+="</select>";
+      cards.push({title:"Timezone",description:"Select your timezone",formInput:tzSelect,icon:"fa-globe",save:"updatePreference('timeZone',tz.value)",property:"timeZone"});
+      // NTP
+      cards.push({title:"NTP Server",description:"NTP pool or local server",formInput:"<input id='ntp' class='w3-input w3-light-grey' type='text' value='"+settings.ntpserver+"'>",icon:"fa-server",save:"updatePreference('ntpServer',ntp.value)",property:"ntpServer"});
+      // Rest of the hardware settings...
+      cards.push({title:"Swap Blue/Green",description:"If panel is RBG instead of RGB",formInput:"<input class='w3-check' type='checkbox' id='swapBG' "+(settings.swapbluegreen=='1'?"checked":"")+" ><label for='swapBG'> Yes</label>",icon:"fa-random",save:"updatePreference('swapBlueGreen',Number(swapBG.checked))",property:"swapBlueGreen"});
+      cards.push({title:"Swap Blue/Red",description:"If needed for panel configuration",formInput:"<input class='w3-check' type='checkbox' id='swapBR' "+(settings.swapbluered=='1'?"checked":"")+" ><label for='swapBR'> Yes</label>",icon:"fa-random",save:"updatePreference('swapBlueRed',Number(swapBR.checked))",property:"swapBlueRed"});
+      cards.push({title:"LED Color Order",description:"RGB standard, RBG/GBR if swapped",formInput:"<select id='ledColorOrder'><option value='0' "+(settings.ledcolororder==0?"selected":"")+">RGB</option><option value='1' "+(settings.ledcolororder==1?"selected":"")+">RBG</option><option value='2' "+(settings.ledcolororder==2?"selected":"")+">GBR</option></select>",icon:"fa-random",save:"updatePreference('ledColorOrder',ledColorOrder.value)",property:"ledColorOrder"});
+      cards.push({title:"Reverse Phase",description:"Fix ghosting/misaligned pixels",formInput:"<input class='w3-check' type='checkbox' id='reversePhase' "+(settings.reversephase=='1'?"checked":"")+" ><label for='reversePhase'> Enable</label>",icon:"fa-adjust",save:"updatePreference('reversePhase',Number(reversePhase.checked))",property:"reversePhase"});
+      cards.push({title:"LDR Pin",description:"LDR GPIO pin (default:35) | Read: <strong id='ldrPinRead'>0</strong>",formInput:"<input id='ldrPin' class='w3-input' type='number' min='0' max='39' value='"+settings.ldrpin+"'>",icon:"fa-microchip",save:"updatePreference('ldrPin',ldrPin.value)",property:"ldrPin"});
+      cards.push({title:"Rotation",description:"Display rotation",formInput:"<select id='rotation'><option value='0' "+(settings.displayrotation==0?"selected":"")+">0°</option><option value='1' "+(settings.displayrotation==1?"selected":"")+">90°</option><option value='2' "+(settings.displayrotation==2?"selected":"")+">180°</option><option value='3' "+(settings.displayrotation==3?"selected":"")+">270°</option></select>",icon:"fa-rotate-right",save:"updatePreference('displayRotation',rotation.value)",property:"displayRotation"});
+      cards.push({title:"Driver",description:"Matrix control chip",formInput:"<select id='driver'><option value='0' "+(settings.driver==0?"selected":"")+">SHIFTREG</option><option value='1' "+(settings.driver==1?"selected":"")+">FM6124</option><option value='2' "+(settings.driver==2?"selected":"")+">FM6126A</option></select>",icon:"fa-microchip",save:"updatePreference('driver',driver.value)",property:"driver"});
+      cards.push({title:"I2C Speed",description:"I2S speed",formInput:"<select id='speed'><option value='8000000' "+(settings.i2cspeed==8000000?"selected":"")+">8 MHz</option><option value='16000000' "+(settings.i2cspeed==16000000?"selected":"")+">16 MHz</option></select>",icon:"fa-microchip",save:"updatePreference('i2cSpeed',speed.value)",property:"i2cSpeed"});
+      cards.push({title:"E Pin",description:"64-row panel address line E",formInput:"<input id='E_pin' class='w3-input' type='number' value='"+settings.e_pin+"'>",icon:"fa-microchip",save:"updatePreference('E_pin',E_pin.value)",property:"E_pin"});
 
       var base = document.querySelector('#base');
       cards.forEach(c => {
-
-        if (!c.hasOwnProperty('exclusive') || (c.hasOwnProperty('exclusive') && c.exclusive === settings.clockface_name)) {
-          var clone = base.cloneNode(true);
-          clone.id = c.property + "-card";
-          clone.removeAttribute("style");
-
-          Array.prototype.slice.call(clone.getElementsByTagName('*')).forEach(e => {
-            e.id = e.id + "-" + c.property;
-          });
-
-          base.before(clone);
-          document.getElementById("title-" + c.property).innerHTML = c.title
-          document.getElementById("description-" + c.property).innerHTML = c.description
-          document.getElementById("formInput-" + c.property).innerHTML = c.formInput
-          document.getElementById("icon-" + c.property).classList.add(c.icon);
-          document.getElementById("cardButton-" + c.property).setAttribute("onclick", c.save);
-        }
-      })
-
-      document.getElementById("ssid").innerHTML = "<i class='fa fa-wifi'></i> " + settings.wifissid
-      document.getElementById("fw-version").innerHTML = "<i class='fa fa-code-fork'></i> Firmware v" + settings.cw_fw_version
+        var clone = base.cloneNode(true);
+        clone.id = c.property + "-card";
+        clone.removeAttribute("style");
+        Array.prototype.slice.call(clone.getElementsByTagName('*')).forEach(e => { e.id = e.id + "-" + c.property; });
+        base.before(clone);
+        document.getElementById("title-" + c.property).innerHTML = c.title;
+        document.getElementById("description-" + c.property).innerHTML = c.description;
+        document.getElementById("formInput-" + c.property).innerHTML = c.formInput;
+        document.getElementById("icon-" + c.property).classList.add(c.icon);
+        if(c.readonly) document.getElementById("cardButton-" + c.property).style.display='none';
+        else document.getElementById("cardButton-" + c.property).setAttribute("onclick", c.save);
+      });
+      document.getElementById("ssid").innerHTML = "<i class='fa fa-wifi'></i> " + settings.wifissid;
+      document.getElementById("fw-version").innerHTML = "<i class='fa fa-code-fork'></i> Firmware v" + settings.cw_fw_version;
     }
-
     function updatePreference(key, value) {
       const xhr = new XMLHttpRequest();
-      xhr.onreadystatechange = function () {
-        if (this.readyState == 4 && this.status >= 200 && this.status < 299) {
-          document.getElementById('status').style.display = 'block';
-        }
-      };
+      xhr.onreadystatechange = function () { if (this.readyState == 4 && this.status >= 200 && this.status < 299) document.getElementById('status').style.display = 'block'; };
       xhr.open('POST', '/set?' + key + '=' + value);
       xhr.send();
-
-      setTimeout(() => {
-        document.getElementById('status').style.display = 'none';
-      }, 2000);
+      setTimeout(() => { document.getElementById('status').style.display = 'none'; }, 2000);
     }
-
     function splitHeaders(request) {
       const headers = request.getAllResponseHeaders().trim().split(/[\r\n]+/);
       const headerMap = {};
@@ -292,116 +137,54 @@ const char SETTINGS_PAGE[] PROGMEM = R""""(
       });
       return headerMap;
     }
-
     function requestGet(path, cb) {
       var xmlhttp = new XMLHttpRequest();
-      xmlhttp.onreadystatechange = function () {
-        if (this.readyState === 2 && this.status === 204) {
-          cb(this);
-        }
-      };
+      xmlhttp.onreadystatechange = function () { if (this.readyState === 2 && this.status === 204) cb(this); };
       xmlhttp.open("GET", path, true);
       xmlhttp.send();
     }
-    
-    function readPin(pin) {
-      requestGet("/read?pin=" + pin, (req) => {
-        var headers = splitHeaders(req);
-        document.getElementById("ldrPinRead").innerHTML = headers.pin;  
-      });  
-    }
-
-    function begin() {
-      requestGet("/get", (req) => {
-        createCards(splitHeaders(req));
-      });  
-    }
-
+    function readPin(pin) { requestGet("/read?pin=" + pin, (req) => { var headers = splitHeaders(req); document.getElementById("ldrPinRead").innerHTML = headers.pin; }); }
+    function begin() { requestGet("/get", (req) => { createCards(splitHeaders(req)); }); }
     function uploadBin(input) {
       const file = input.files[0];
       if (!file) return;
       const statusEl = document.getElementById('status');
       statusEl.style.display = 'block';
-      statusEl.innerHTML = "<i class='fa fa-spinner fa-spin'></i> Uploading " + file.name + " (" + (file.size/1024).toFixed(0) + " KB)...";
-      fetch('/ota/upload', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': file.size },
-        body: file
-      }).then(r => r.json()).then(data => {
-        if (data.status === 'ok') {
-          statusEl.innerHTML = "<i class='fa fa-check'></i> Upload complete! Rebooting... reconnect in ~15s";
-        } else {
-          statusEl.innerHTML = "<i class='fa fa-times'></i> Upload failed: " + (data.message || 'unknown error');
-        }
-      }).catch(err => {
-        // Device reboots mid-response which may cause a network error — treat as success
-        statusEl.innerHTML = "<i class='fa fa-check'></i> Rebooting... reconnect in ~15s";
-      });
+      statusEl.innerHTML = "<i class='fa fa-spinner fa-spin'></i> Uploading...";
+      fetch('/ota/upload', {method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file}).then(r => r.json()).then(data => {
+        statusEl.innerHTML = data.status === 'ok' ? "<i class='fa fa-check'></i> Rebooting in ~15s" : "<i class='fa fa-times'></i> Upload failed";
+      }).catch(err => { statusEl.innerHTML = "<i class='fa fa-check'></i> Rebooting in ~15s"; });
       input.value = '';
     }
-
     function checkUpdate() {
       document.getElementById('status').style.display = 'block';
       document.getElementById('status').innerHTML = "<i class='fa fa-spinner fa-spin'></i> Checking...";
       fetch('/ota/check').then(r => r.json()).then(data => {
         if (data.available) {
-          if (confirm('Update available: ' + data.latest + '\nCurrent: ' + data.current + '\n\nFlash now? (Device will reboot)')) {
+          if (confirm('Update available: ' + data.latest + '\nCurrent: ' + data.current)) {
             document.getElementById('status').innerHTML = "<i class='fa fa-spinner fa-spin'></i> Updating...";
-            fetch('/ota/update', {method:'POST'}).then(() => {
-              document.getElementById('status').innerHTML = "Updating... reconnect in ~30s";
-            });
-          } else {
-            document.getElementById('status').style.display = 'none';
-          }
-        } else {
-          alert('Already up to date: ' + data.current);
-          document.getElementById('status').style.display = 'none';
-        }
-      }).catch(() => {
-        alert('Could not check for updates');
-        document.getElementById('status').style.display = 'none';
-      });
+            fetch('/ota/update', {method:'POST'});
+          } else document.getElementById('status').style.display = 'none';
+        } else { alert('Already up to date'); document.getElementById('status').style.display = 'none'; }
+      }).catch(() => { alert('Check failed'); document.getElementById('status').style.display = 'none'; });
     }
-    function backupConfig() {
-      window.location.href = '/backup';
-    }
+    function backupConfig() { window.location.href = '/backup'; }
     function restoreConfig(input) {
       const file = input.files[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
+      new FileReader().onload = function(e) {
         try {
           const cfg = JSON.parse(e.target.result);
-          const keys = Object.keys(cfg);
           let i = 0;
-          function sendNext() {
-            if (i >= keys.length) {
-              document.getElementById('status').style.display = 'block';
-              setTimeout(() => { fetch('/restart', {method:'POST'}); }, 1500);
-              return;
-            }
-            const k = keys[i++];
-            updatePreference(k, cfg[k]);
-            setTimeout(sendNext, 150);
-          }
-          sendNext();
-        } catch(err) { alert('Invalid config file: ' + err); }
+          function send() { if (i < Object.keys(cfg).length) { const k = Object.keys(cfg)[i++]; updatePreference(k, cfg[k]); setTimeout(send, 150); } else { fetch('/restart', {method:'POST'}); } }
+          send();
+        } catch(err) { alert('Invalid config'); }
       };
-      reader.readAsText(file);
+      new FileReader().readAsText(file);
     }
-    function restartDevice() {
-      const xhr = new XMLHttpRequest();
-      xhr.open('POST', '/restart');
-      xhr.send();
-    }
-
-    //Local
-    //createCards({ "displayBright": 30, "swapBlueGreen": 1, "swapBlueRed": 0, "use24hFormat": 0, "timeZone": "Europe/Lisbon", "ntpServer": "pool.ntp.org", "wifiSsid": "test", "autoBrightMin":0, "autoBrightMax":800, "ldrPin":35, "driver":1, "i2cspeed":16000000, "e_pin":18, "cw_fw_version":"1.2.2", "clockface_name":"cw-cf-0x07", "canvasServer":"raw.githubusercontent.com", "canvasFile":"star-wars.json" });
-
-    //Embedded
+    function restartDevice() { new XMLHttpRequest().open('POST', '/restart'); new XMLHttpRequest().send(); }
     begin();
-
   </script>
 </body>
 </html>
-)"""";
+)""";
