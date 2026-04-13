@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.10.0](https://github.com/Starlord-8bit/clockwise-paradise/compare/v2.9.0...v2.10.0) (2026-04-13)
+
+
+### Features
+
+* **core:** modularize runtime and bump 3.0.3 ([#30](https://github.com/Starlord-8bit/clockwise-paradise/issues/30)) ([43ed732](https://github.com/Starlord-8bit/clockwise-paradise/commit/43ed7326c26e2993b61d762c860c8aec955dd9fd))
+* widgets module, timer widget, Widgets UX page, WiFi resilience fixes, v3.0.1 ([6a4023a](https://github.com/Starlord-8bit/clockwise-paradise/commit/6a4023a265818370f52b1e28e9e7b06b7f91c908))
+
 ## [2.9.0](https://github.com/Starlord-8bit/clockwise-paradise/compare/v2.7.0...v2.9.0) (2026-04-11)
 
 
