@@ -29,7 +29,7 @@
   #define CLOCKFACE_NAME "UNKNOWN"
 #endif
 
-WiFiServer server(80);
+extern WiFiServer server;
 
 struct ClockwiseWebServer
 {

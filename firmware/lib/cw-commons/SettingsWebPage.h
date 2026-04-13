@@ -101,7 +101,7 @@ Dc77xFFWklXic+Ixky5I/Mh1xeM3zkWXBZ4ZNTPpeeIosVjsYKWDWcnUiKeIY6qmU76Q9VjlvMVZq9RY
       cards.push({title:"Driver",description:"Matrix control chip",formInput:"<select id='driver'><option value='0' "+(settings.driver==0?"selected":"")+">SHIFTREG</option><option value='1' "+(settings.driver==1?"selected":"")+">FM6124</option><option value='2' "+(settings.driver==2?"selected":"")+">FM6126A</option></select>",icon:"fa-microchip",save:"updatePreference('driver',driver.value)",property:"driver"});
       cards.push({title:"I2C Speed",description:"I2S speed",formInput:"<select id='speed'><option value='8000000' "+(settings.i2cspeed==8000000?"selected":"")+">8 MHz</option><option value='16000000' "+(settings.i2cspeed==16000000?"selected":"")+">16 MHz</option></select>",icon:"fa-microchip",save:"updatePreference('i2cSpeed',speed.value)",property:"i2cSpeed"});
       cards.push({title:"E Pin",description:"64-row panel address line E",formInput:"<input id='E_pin' class='w3-input' type='number' value='"+settings.e_pin+"'>",icon:"fa-microchip",save:"updatePreference('E_pin',E_pin.value)",property:"E_pin"});
-      
+
       var base = document.querySelector('#base');
       cards.forEach(c => {
         var clone = base.cloneNode(true);
