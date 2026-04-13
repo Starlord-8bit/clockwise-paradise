@@ -44,6 +44,7 @@ class CWMqtt {
 public:
     // Runtime callbacks — set by main.cpp for live control without reboot
     std::function<void(uint8_t)> onClockfaceSwitch = nullptr;
+    std::function<bool(const String&)> onWidgetSwitch = nullptr;
     std::function<void(uint8_t)> onBrightnessChange = nullptr;
 
     static CWMqtt* getInstance() {
@@ -103,6 +104,7 @@ public:
             + ",\"nightLevel\":" + String(p->nightLevel)
             + ",\"autoChange\":" + String(p->autoChange)
             + ",\"clockface\":" + String(p->clockFaceIndex)
+            + ",\"activeWidget\":\"" + p->activeWidget + "\""
             + ",\"nightActive\":false"
             + ",\"totalDays\":" + String(p->totalDays)
             + ",\"version\":\"" + String(CW_FW_VERSION) + "\"}";
@@ -248,9 +250,19 @@ private:
         } else if (prop == "clockface") {
             uint8_t idx = (uint8_t)payload.toInt();
             if (onClockfaceSwitch) {
-              onClockfaceSwitch(idx);
+                onClockfaceSwitch(idx);
             } else {
-              ESP_LOGW("MQTT", "clockface switch requested but callback not wired");
+                ESP_LOGW("MQTT", "clockface switch requested but callback not wired");
+            }
+        } else if (prop == "widget") {
+            String normalized = payload;
+            normalized.toLowerCase();
+            if (onWidgetSwitch) {
+                if (!onWidgetSwitch(normalized)) {
+                    ESP_LOGW("MQTT", "Widget '%s' was rejected", normalized.c_str());
+                }
+            } else {
+                ESP_LOGW("MQTT", "widget switch requested but callback not wired");
             }
         } else if (prop == "restart") {
             StatusController::getInstance()->forceRestart();

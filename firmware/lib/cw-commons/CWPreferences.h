@@ -50,6 +50,7 @@ struct ClockwiseParams
     // Uptime counter
     const char* const PREF_TOTAL_DAYS      = "totalDays";
     const char* const PREF_CLOCKFACE_INDEX  = "clockfaceIdx"; // persisted clockface index (0-based)
+    const char* const PREF_ACTIVE_WIDGET    = "activeWidget";
     // OTA
     const char* const PREF_OTA_ENABLED    = "otaEnabled";
     const char* const PREF_OTA_OWNER      = "otaOwner";
@@ -112,6 +113,7 @@ struct ClockwiseParams
     // Uptime
     uint32_t totalDays;
     uint8_t  clockFaceIndex; // 0-based persisted clockface selection
+    String   activeWidget;
     // OTA
     bool     otaEnabled;
     String   otaOwner;
@@ -170,6 +172,7 @@ struct ClockwiseParams
         preferences.putString(PREF_BIGCLOCK_FILE, bigclockFile);
         preferences.putUInt(PREF_TOTAL_DAYS, totalDays);
         preferences.putUChar(PREF_CLOCKFACE_INDEX, clockFaceIndex);
+        preferences.putString(PREF_ACTIVE_WIDGET, activeWidget);
         preferences.putBool(PREF_OTA_ENABLED, otaEnabled);
         preferences.putString(PREF_OTA_OWNER, otaOwner);
         preferences.putString(PREF_OTA_REPO, otaRepo);
@@ -185,6 +188,11 @@ struct ClockwiseParams
     void saveClockfaceIndex()
     {
         preferences.putUChar(PREF_CLOCKFACE_INDEX, clockFaceIndex);
+    }
+
+    void saveActiveWidget()
+    {
+        preferences.putString(PREF_ACTIVE_WIDGET, activeWidget);
     }
 
     void saveTotalDays()
@@ -233,6 +241,7 @@ struct ClockwiseParams
         bigclockFile   = preferences.getString(PREF_BIGCLOCK_FILE, "clockwise-paradise/main/clockfaces/bigclock");
         totalDays     = preferences.getUInt(PREF_TOTAL_DAYS, 0);
         clockFaceIndex = preferences.getUChar(PREF_CLOCKFACE_INDEX, 0);
+        activeWidget  = preferences.getString(PREF_ACTIVE_WIDGET, "clock");
         // Decode any legacy URL-encoded string values (e.g. Europe%2FStockholm -> Europe/Stockholm)
         // This handles devices that had the bug before v2.4.0
         if (timeZone.indexOf('%') >= 0) {

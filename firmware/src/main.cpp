@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
-#include "esp_system.h"
 #include "esp_log.h"
 #include "esp_ota_ops.h"
 
@@ -13,6 +12,7 @@ static const CWClockfaceDriver* currentFace = nullptr;
 #include <CWDateTime.h>
 #include <CWPreferences.h>
 #include <CWWebServer.h>
+#include <CWWidgetManager.h>
 #include <StatusController.h>
 #include <Locator.h>
 #include <CWMqtt.h>
@@ -24,6 +24,7 @@ static const CWClockfaceDriver* currentFace = nullptr;
 
 MatrixPanel_I2S_DMA *dma_display = nullptr;
 // clockface pointer declared above
+CWWidgetManager widgetManager;
 WiFiController wifi;
 CWDateTime cwDateTime;
 
@@ -152,13 +153,13 @@ void nightModeCheck()
       dma_display->setBrightness8(bright);
       p->canvasServer = p->bigclockServer;
       p->canvasFile   = p->bigclockFile;
-      CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
+      widgetManager.activateClockWidget(p->clockFaceIndex);
     }
   } else if (!inNight && nightModeActive) {
     nightModeActive = false;
     p->load();  // restore original canvas settings
     dma_display->setBrightness8(p->displayBright);
-    CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
+    widgetManager.activateClockWidget(p->clockFaceIndex);
   }
 }
 
@@ -179,9 +180,10 @@ void autoChangeCheck()
       next = random(CWDriverRegistry::COUNT);
       if (next == p->clockFaceIndex) next = (next + 1) % CWDriverRegistry::COUNT;
     }
-    if (CWDriverRegistry::switchTo(&currentFace, next, dma_display, &cwDateTime)) {
+    if (widgetManager.activateClockWidget(next)) {
       p->clockFaceIndex = next;
-      p->saveClockfaceIndex();
+      p->activeWidget = CWWidgetManager::WIDGET_CLOCK;
+      p->save();
       ESP_LOGI("AUTO", "Day changed — switched to clockface %d", next);
     }
   }
@@ -194,7 +196,7 @@ void uptimeCheck()
   if (today != lastUptimeDay) {
     lastUptimeDay = today;
     ClockwiseParams::getInstance()->totalDays++;
-    ClockwiseParams::getInstance()->saveTotalDays();
+    ClockwiseParams::getInstance()->save();
   }
 }
 
@@ -210,7 +212,6 @@ void webServerWatchdog()
 void setup()
 {
   Serial.begin(115200);
-  randomSeed(esp_random());
   pinMode(ESP32_LED_BUILTIN, OUTPUT);
   StatusController::getInstance()->blink_led(5, 100);
 
@@ -218,6 +219,25 @@ void setup()
   auto* p = ClockwiseParams::getInstance();
 
   pinMode(p->ldrPin, INPUT);
+
+  // Connect WiFi BEFORE starting the HUB75 I2S/DMA display driver.
+  // DMA generates I2S-band RF emissions that prevent new WiFi associations.
+  // We establish the connection while the RF environment is clean, then hold
+  // it through DMA start. WiFiController::begin() fast-paths on WL_CONNECTED,
+  // skipping the disconnect+reconnect that would drop the early association.
+  if (!p->wifiSsid.isEmpty()) {
+    WiFi.mode(WIFI_STA);
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);
+    WiFi.begin(p->wifiSsid.c_str(), p->wifiPwd.c_str());
+    // Wait for association (up to 8s) before starting DMA.
+    // On a reachable AP this completes in ~1s — no noticeable delay.
+    // On a missing/wrong-password AP we give up and fall through to the
+    // AP-portal fallback path in wifi.begin() after displaySetup().
+    for (uint8_t i = 0; i < 80 && WiFi.status() != WL_CONNECTED; i++) {
+      delay(100);
+    }
+    ESP_LOGI("WiFi", "Pre-DMA connect status: %d (3=OK)", WiFi.status());
+  }
 
   displaySetup(p->ledColorOrder, p->reversePhase, p->displayBright,
                p->displayRotation, p->driver, p->i2cSpeed, p->E_pin);
@@ -229,13 +249,40 @@ void setup()
 
   // v3: note target clockface — setup() called after cwDateTime is ready
   CWDriverRegistry::get(p->clockFaceIndex); // validate index early
+  widgetManager.begin(dma_display, &cwDateTime, &currentFace);
+  widgetManager.onWidgetChanged = [](const String& widgetName) {
+    auto* prefs = ClockwiseParams::getInstance();
+    String normalized = widgetName;
+    normalized.toLowerCase();
+    if (prefs->activeWidget != normalized) {
+      prefs->activeWidget = normalized;
+      prefs->saveActiveWidget();
+    }
+  };
 
   // Wire live-switch callback — instant, no reboot
   ClockwiseWebServer::getInstance()->onClockfaceSwitch = [](uint8_t idx) {
-    if (CWDriverRegistry::switchTo(&currentFace, idx, dma_display, &cwDateTime)) {
+    if (widgetManager.activateClockWidget(idx)) {
       ClockwiseParams::getInstance()->clockFaceIndex = idx;
-      ClockwiseParams::getInstance()->save();
+      ClockwiseParams::getInstance()->saveClockfaceIndex();
     }
+  };
+  ClockwiseWebServer::getInstance()->onWidgetSwitch = [](const String& widgetName) {
+    auto* prefs = ClockwiseParams::getInstance();
+    if (widgetManager.activateWidgetByName(widgetName, prefs->clockFaceIndex)) {
+      return true;
+    }
+    return false;
+  };
+  ClockwiseWebServer::getInstance()->onWidgetStateJson = []() {
+    auto* prefs = ClockwiseParams::getInstance();
+    String json = "{";
+    json += "\"activeWidget\":\"" + String(widgetManager.activeWidgetName()) + "\"";
+    json += ",\"timerRemainingSec\":" + String(widgetManager.timerRemainingSeconds());
+    json += ",\"clockfaceName\":\"" + String(CWDriverRegistry::name(prefs->clockFaceIndex)) + "\"";
+    json += ",\"canReturnToClock\":" + String(widgetManager.canReturnToClock() ? "true" : "false");
+    json += "}";
+    return json;
   };
 
   // Live brightness apply (fixed mode only — auto modes manage their own brightness)
@@ -257,36 +304,54 @@ void setup()
   StatusController::getInstance()->clockwiseLogo();
   delay(1000);
 
+    // OTA rollback guard — placed before wifi.begin() so that a restart triggered by
+    // AP portal timeout does not leave the OTA partition in PENDING_VERIFY state and
+    // cause the bootloader to roll back to the previous firmware. Display init and NVS
+    // load passing is sufficient evidence of firmware health at this stage.
+    // Safe to call unconditionally: no-op when partition is already VALID (e.g. non-OTA boots).
+    esp_ota_mark_app_valid_cancel_rollback();
+    ESP_LOGI("OTA", "Firmware marked valid — rollback window closed");
+
   StatusController::getInstance()->wifiConnecting();
   if (wifi.begin()) {
     StatusController::getInstance()->ntpConnecting();
     cwDateTime.begin(p->timeZone.c_str(), p->use24hFormat,
                      p->ntpServer.c_str(), p->manualPosix.c_str());
     // Now safe to setup the clockface — cwDateTime is ready
-    CWDriverRegistry::switchTo(&currentFace, p->clockFaceIndex, dma_display, &cwDateTime);
+    if (!widgetManager.activateWidgetByName(p->activeWidget, p->clockFaceIndex)) {
+      widgetManager.activateClockWidget(p->clockFaceIndex);
+      p->activeWidget = CWWidgetManager::WIDGET_CLOCK;
+      p->saveActiveWidget();
+    }
     CWMqtt::getInstance()->begin();  // start MQTT after WiFi + time sync
-  }
+    } else {
+      // AP config portal timed out without WiFi credentials being configured.
+      // Restart immediately so the portal becomes available again on next boot.
+      // This avoids the dead zone where no AP and no web server are reachable.
+      ESP_LOGW("WiFi", "AP config portal timed out without configuration — restarting");
+      delay(3000);
+      ESP.restart();
+    }
 
   // Wire MQTT callbacks — same runtime behaviour as web UI
   CWMqtt::getInstance()->onClockfaceSwitch = [](uint8_t idx) {
-    if (CWDriverRegistry::switchTo(&currentFace, idx, dma_display, &cwDateTime)) {
+    if (widgetManager.activateClockWidget(idx)) {
       ClockwiseParams::getInstance()->clockFaceIndex = idx;
-      ClockwiseParams::getInstance()->save();
+      ClockwiseParams::getInstance()->saveClockfaceIndex();
     }
+  };
+  CWMqtt::getInstance()->onWidgetSwitch = [](const String& widgetName) {
+    auto* prefs = ClockwiseParams::getInstance();
+    if (widgetManager.activateWidgetByName(widgetName, prefs->clockFaceIndex)) {
+      return true;
+    }
+    return false;
   };
   CWMqtt::getInstance()->onBrightnessChange = [](uint8_t bright) {
     if (ClockwiseParams::getInstance()->brightMethod == 2)
       dma_display->setBrightness8(bright);
   };
 
-  // OTA rollback guard: firmware reached end of setup() without crashing — mark as valid.
-  // With CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE, a freshly OTA'd partition starts in
-  // PENDING_VERIFY state. Any crash before this call leaves it pending; the bootloader
-  // then rolls back to the previous partition on the next boot. Calling this here means:
-  // "display initialised, WiFi attempted, critical tasks started — firmware is healthy."
-  // Safe to call unconditionally: no-op when partition is already VALID (non-OTA boots).
-  esp_ota_mark_app_valid_cancel_rollback();
-  ESP_LOGI("OTA", "Firmware marked valid — rollback window closed");
 }
 
 void loop()
@@ -301,7 +366,7 @@ void loop()
   }
 
   if (wifi.connectionSucessfulOnce) {
-    if (currentFace) currentFace->update();
+    widgetManager.update();
     uptimeCheck();
     autoChangeCheck();
   }

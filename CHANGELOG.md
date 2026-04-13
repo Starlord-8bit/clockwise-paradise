@@ -69,7 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.2] - 2024-04-21
 
-### Added 
+### Added
 
 - New Display Rotation param. Thanks @Xefan.
 - Added ntp sync in main loop. Thanks @vandalon
@@ -80,7 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.1] - 2023-08-27
 
-### Added 
+### Added
 
 - New Manual Posix param to avoid the `timezoned.rop.nl` ezTime's timezone service. Thanks @JeffWDH!
 
@@ -95,10 +95,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.0] - 2023-07-01
 
-### Added 
+### Added
 
 - Canvas clockface
-- Created a method to make use of the ezTime formating string 
+- Created a method to make use of the ezTime formating string
 - Possibility to change Wifi user/pwd via API (must be connected)
 - A helper to make HTTP requests
 
@@ -124,13 +124,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Automatic bright control using LDR 
+- Automatic bright control using LDR
 - Restart if offline for 5 minutes
 
 ### Fixed
 
 - Clockface 0x06 (Pokedex): show AM PM only when is not using 24h format
-- Restart endpoint returns HTTP 204 before restarting 
+- Restart endpoint returns HTTP 204 before restarting
 
 
 ## [1.1.0] - 2023-04-02

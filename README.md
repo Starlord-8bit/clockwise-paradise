@@ -35,6 +35,7 @@ It builds on the solid foundation of the original, adds the best features from t
 | **OTA Updates** | Update firmware over Wi-Fi — via web UI or HTTP API (no USB required after initial flash) |
 | **MQTT + HA Discovery** | Native MQTT client with Home Assistant auto-discovery and device entities |
 | **Canvas Clockfaces** | 11 ready-to-use JSON faces in `clockfaces/` — local server supported |
+| **Widget Runtime (beta)** | Clock is now a widget; timer widget available via API/MQTT (`timer:<seconds>`) with auto-return |
 
 ### No callhome, no cloud, no surprises
 - Zero telemetry or device registration
@@ -94,12 +95,96 @@ More community faces at [jnthas/clock-club](https://github.com/jnthas/clock-club
 
 ---
 
+## 🧩 Widgets (beta)
+
+Clockwise Paradise now has a runtime widget manager.
+
+- Implemented widgets: `clock`, `timer`
+- Placeholder widgets (not implemented yet): `weather`, `notification`, `stocks`
+
+### HTTP API
+
+List widgets:
+
+```bash
+curl http://<device-ip>/api/widgets
+```
+
+Read runtime widget state:
+
+```bash
+curl http://<device-ip>/api/widget-state
+```
+
+Show a widget via unified runtime command endpoint:
+
+```bash
+curl -X POST "http://<device-ip>/api/widget/show?spec=clock"
+curl -X POST "http://<device-ip>/api/widget/show?spec=timer:90"
+```
+
+Switch to clock widget:
+
+```bash
+curl -X POST "http://<device-ip>/set?activeWidget=clock"
+```
+
+Start timer widget for 90 seconds:
+
+```bash
+curl -X POST "http://<device-ip>/set?activeWidget=timer:90"
+```
+
+When the timer reaches `00:00`, the display automatically returns to the current clockface.
+
+### MQTT commands
+
+Use topic:
+
+```text
+<prefix>/<device-mac>/set/widget
+```
+
+Payload examples:
+
+- `clock`
+- `timer:120`
+
+### Web UI
+
+- New page: `/widgets`
+- Runtime strip shows active widget, timer remaining, and command status.
+- Widget cards provide one-click activation.
+
+---
+
 ## 🛠️ Building
 
 ### Requirements
 - ESP-IDF v4.4.x or PlatformIO
 - ESP32 dev board
 - 64×64 HUB75 LED matrix
+
+### Developer tools bootstrap (recommended)
+
+To avoid host package drift (for example, old system `platformio` on Python 3.12), use the pinned local toolchain:
+
+```bash
+make tools-setup
+make tools-check
+```
+
+This creates `.venv-tools/` with:
+
+- PlatformIO 6.x (`.venv-tools/bin/pio`)
+- CMake 3.28+ (`.venv-tools/bin/cmake`)
+
+Then run tests with either path:
+
+```bash
+make test      # CMake native tests (authoritative path)
+make pio-test  # verifies local PlatformIO install, then runs make test
+```
 
 ### Quick start
 ```bash

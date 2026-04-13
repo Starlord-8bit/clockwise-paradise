@@ -24,6 +24,7 @@ inline void cw_sendHomePage(WiFiClient& client) {
     <div class="section-title">Quick actions</div>
     <div class="footer">
       <a class="btn btn-secondary" href="/clock">🕐 Clock</a>
+      <a class="btn btn-secondary" href="/widgets">🧩 Widgets</a>
       <a class="btn btn-secondary" href="/sync">🔗 Sync</a>
       <a class="btn btn-secondary" href="/hardware">🔧 Hardware</a>
       <a class="btn btn-primary" href="/update">⬆ Update</a>

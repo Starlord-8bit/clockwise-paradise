@@ -60,7 +60,7 @@ struct WiFiController
   bool alternativeSetupMethod()
   {
     WiFiManager wifiManager;
-    wifiManager.setConfigPortalTimeout(300); //Wait 5min to configure wifi via AP
+     wifiManager.setConfigPortalTimeout(600); // 10 min window to configure WiFi via AP
 
     bool success = wifiManager.startConfigPortal("Clockwise-Wifi");
 
@@ -76,7 +76,22 @@ struct WiFiController
 
   bool begin()
   {
+    // Fast path: WiFi was pre-connected in main.cpp setup() before the I2S/DMA driver
+    // started. Avoid the disconnect() + reconnect cycle — that would drop the
+    // association established in the clean RF environment before DMA was active.
+    if (WiFi.status() == WL_CONNECTED) {
+      connectionSucessfulOnce = true;
+      ClockwiseWebServer::getInstance()->startWebServer();
+      if (MDNS.begin("clockwise")) {
+        MDNS.addService("http", "tcp", 80);
+      }
+      ESP_LOGI("WiFi", "Pre-connected to %s, IP address %s",
+               WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+      return true;
+    }
+
     WiFi.mode(WIFI_STA);
+    WiFi.setTxPower(WIFI_POWER_19_5dBm);  // max TX power for DMA-noisy environment
     WiFi.disconnect();
 
     improvSerial.setDeviceInfo(ImprovTypes::ChipFamily::CF_ESP32, CW_FW_NAME, CW_FW_VERSION, "Clockwise");
@@ -96,10 +111,16 @@ struct WiFiController
       }
     }
 
-    StatusController::getInstance()->wifiConnectionFailed("Setup WiFi via AP");
-    alternativeSetupMethod();
+    // "AP: Clockwise-Wifi" tells the user exactly which AP to connect to for configuration
+    StatusController::getInstance()->wifiConnectionFailed("AP: Clockwise-Wifi");
+    ESP_LOGW("WiFi", "Saved WiFi credentials failed or absent — starting config AP");
+    if (alternativeSetupMethod()) {
+      // User configured WiFi via AP portal — connectionSucessfulOnce already set true
+      return true;
+    }
 
-    StatusController::getInstance()->wifiConnectionFailed("WiFi Failed");
+    // AP portal timed out without configuration — caller must restart
+    StatusController::getInstance()->wifiConnectionFailed("WiFi setup timeout");
     return false;
   }
 };
