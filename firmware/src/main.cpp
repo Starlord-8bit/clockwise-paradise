@@ -140,26 +140,24 @@ void nightModeCheck()
 {
   auto* p = ClockwiseParams::getInstance();
   if (p->nightMode == 0) return;
-  if (!wifi.connectionSucessfulOnce) return;  // cwDateTime not initialised yet
-
-  bool inNight = isNightTime();
+  bool inNight = false;
+  if (p->nightTrigger == 1) {
+    inNight = analogRead(p->ldrPin) <= p->nightLdrThres;
+  } else {
+    if (!wifi.connectionSucessfulOnce) return;  // cwDateTime not initialised yet
+    inNight = isNightTime();
+  }
 
   if (inNight && !nightModeActive) {
     nightModeActive = true;
-    if (p->nightMode == 1) {
+    if (p->nightAction == 0) {
       dma_display->setBrightness8(0);
-    } else if (p->nightMode == 2) {
-      uint8_t bright = map(p->nightLevel, 1, 5, 8, 64);
-      dma_display->setBrightness8(bright);
-      p->canvasServer = p->bigclockServer;
-      p->canvasFile   = p->bigclockFile;
-      widgetManager.activateClockWidget(p->clockFaceIndex);
+    } else {
+      dma_display->setBrightness8(p->nightMinBr);
     }
   } else if (!inNight && nightModeActive) {
     nightModeActive = false;
-    p->load();  // restore original canvas settings
     dma_display->setBrightness8(p->displayBright);
-    widgetManager.activateClockWidget(p->clockFaceIndex);
   }
 }
 
