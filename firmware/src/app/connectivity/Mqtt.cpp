@@ -1,7 +1,7 @@
 #include "Mqtt.h"
 
-#include <CWMqtt.h>
-#include <CWPreferences.h>
+#include <connectivity/CWMqtt.h>
+#include <core/CWPreferences.h>
 
 void bindMqttCallbacks(AppState& state) {
   CWMqtt::getInstance()->onClockfaceSwitch = [&state](uint8_t idx) {

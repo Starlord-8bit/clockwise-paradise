@@ -2,14 +2,14 @@
 
 #include <WiFi.h>
 #include <functional>
-#include <CWPreferences.h>
-#include <CWOTA.h>
-#include <CWWidgetManager.h>
-#include "StatusController.h"
+#include <core/CWPreferences.h>
+#include <connectivity/CWOTA.h>
+#include <widgets/clockface/CWWidgetManager.h>
+#include "display/StatusController.h"
 #include "esp_log.h"
 
 // New multi-page UI
-#include "CWWebUI.h"
+#include "web/CWWebUI.h"
 #include "pages/HomePage.h"
 #include "pages/ClockPage.h"
 #include "pages/WidgetsPage.h"
@@ -18,9 +18,9 @@
 #include "pages/UpdatePage.h"
 
 // Legacy single-page UI (kept temporarily)
-#include "SettingsWebPage.h"
+#include "web/SettingsWebPage.h"
 
-#include "CWClockfaceDriver.h"
+#include "widgets/clockface/CWClockfaceDriver.h"
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 #include "esp_timer.h"
@@ -49,6 +49,10 @@ struct ClockwiseWebServer
   std::function<void(uint8_t)> onBrightnessChange = nullptr;
   // Callback for live 24h format toggle.
   std::function<void(bool)> on24hFormatChange = nullptr;
+  // Callback for live time-sync reapply (timezone/NTP/POSIX changes).
+  std::function<void()> onTimeSyncSettingsChange = nullptr;
+  // Callback for live MQTT reconnect/reconfigure.
+  std::function<void()> onMqttSettingsChange = nullptr;
   const char* HEADER_TEMPLATE_D = "X-%s: %d\r\n";
   const char* HEADER_TEMPLATE_S = "X-%s: %s\r\n";
 
@@ -72,7 +76,7 @@ struct ClockwiseWebServer
   void handleHttpRequest()
   {
     if (force_restart)
-      StatusController::getInstance()->forceRestart();
+      StatusController::getInstance()->forceRestart("Requested by settings/apply flow");
 
     WiFiClient client = server.available();
     if (!client) return;
@@ -396,6 +400,84 @@ struct ClockwiseWebServer
     v.replace("%2C", ","); v.replace("%2c", ",");
   }
 
+  static bool isSensitiveKey(const String& key) {
+    return key == "wifiPwd" || key == "mqttPass";
+  }
+
+  static String maskedLogValue(const String& key, const String& value) {
+    if (!isSensitiveKey(key)) return value;
+    if (value.isEmpty()) return "<empty>";
+    return "<hidden>";
+  }
+
+  String describeSettingValue(const String& key) {
+    auto* p = ClockwiseParams::getInstance();
+
+    if (key == "displayBright")   return String(p->displayBright);
+    if (key == "use24hFormat")    return String(p->use24hFormat ? 1 : 0);
+    if (key == "clockFaceIndex")  return String(p->clockFaceIndex);
+    if (key == "activeWidget")    return maskedLogValue(key, p->activeWidget);
+    if (key == "autoBright")      return String(p->autoBrightMin) + "," + String(p->autoBrightMax);
+    if (key == "swapBlueGreen")   return String(p->swapBlueGreen ? 1 : 0);
+    if (key == "swapBlueRed")     return String(p->swapBlueRed ? 1 : 0);
+    if (key == "ledColorOrder")   return String(p->ledColorOrder);
+    if (key == "autoChange")      return String(p->autoChange);
+    if (key == "ldrPin")          return String(p->ldrPin);
+    if (key == "displayRotation") return String(p->displayRotation);
+    if (key == "driver")          return String(p->driver);
+    if (key == "E_pin")           return String(p->E_pin);
+    if (key == "brightMethod")    return String(p->brightMethod);
+    if (key == "nightStartH")     return String(p->nightStartH);
+    if (key == "nightStartM")     return String(p->nightStartM);
+    if (key == "nightEndH")       return String(p->nightEndH);
+    if (key == "nightEndM")       return String(p->nightEndM);
+    if (key == "nightBright")     return String(p->nightBright);
+    if (key == "nightMode")       return String(p->nightMode);
+    if (key == "nightLevel")      return String(p->nightLevel);
+    if (key == "nightTrig")       return String(p->nightTrigger);
+    if (key == "nightAction")     return String(p->nightAction);
+    if (key == "nightMinBr")      return String(p->nightMinBr);
+    if (key == "superColor")      return String(p->superColor);
+    if (key == "mqttPort")        return String(p->mqttPort);
+    if (key == "nightLdrThr")     return String(p->nightLdrThres);
+    if (key == "i2cSpeed")        return String(p->i2cSpeed);
+    if (key == "reversePhase")    return String(p->reversePhase ? 1 : 0);
+    if (key == "mqttEnabled")     return String(p->mqttEnabled ? 1 : 0);
+    if (key == "wifiSsid")        return maskedLogValue(key, p->wifiSsid);
+    if (key == "wifiPwd")         return maskedLogValue(key, p->wifiPwd);
+    if (key == "timeZone")        return maskedLogValue(key, p->timeZone);
+    if (key == "ntpServer")       return maskedLogValue(key, p->ntpServer);
+    if (key == "canvasFile")      return maskedLogValue(key, p->canvasFile);
+    if (key == "canvasServer")    return maskedLogValue(key, p->canvasServer);
+    if (key == "manualPosix")     return maskedLogValue(key, p->manualPosix);
+    if (key == "mqttBroker")      return maskedLogValue(key, p->mqttBroker);
+    if (key == "mqttUser")        return maskedLogValue(key, p->mqttUser);
+    if (key == "mqttPass")        return maskedLogValue(key, p->mqttPass);
+    if (key == "mqttPrefix")      return maskedLogValue(key, p->mqttPrefix);
+    if (key == "mqttDevId")       return maskedLogValue(key, p->mqttDeviceId);
+    if (key == "bigclockSrv")     return maskedLogValue(key, p->bigclockServer);
+    if (key == "bigclockFile")    return maskedLogValue(key, p->bigclockFile);
+
+    return "<unknown>";
+  }
+
+  void logUiSettingChange(const String& key, const String& oldValue, bool applied) {
+    if (!applied) {
+      ESP_LOGW("DeviceCfg", "Rejected setting '%s'", key.c_str());
+      return;
+    }
+
+    const String newValue = describeSettingValue(key);
+    if (oldValue == newValue) {
+      ESP_LOGD("DeviceCfg", "No-op setting '%s' (value unchanged: %s)",
+               key.c_str(), newValue.c_str());
+      return;
+    }
+
+    ESP_LOGI("DeviceCfg", "Setting changed: %s: %s -> %s",
+             key.c_str(), oldValue.c_str(), newValue.c_str());
+  }
+
   /**
    * Apply a single URL-decoded key=value pair to ClockwiseParams.
    * Special keys (with runtime callbacks) are handled explicitly;
@@ -403,6 +485,22 @@ struct ClockwiseWebServer
    */
   bool handleSet(const String& key, const String& value) {
     auto* p = ClockwiseParams::getInstance();
+    const bool mqttSettingsChanged =
+      key == "mqttEnabled" || key == "mqttBroker" || key == "mqttPort" ||
+      key == "mqttUser" || key == "mqttPass" || key == "mqttPrefix" ||
+      key == "mqttDevId";
+    const bool timeSyncSettingsChanged =
+      key == "timeZone" || key == "ntpServer" || key == "manualPosix";
+
+    auto applyRuntimeSettings = [&](bool changed) {
+      if (!changed) return;
+      if (timeSyncSettingsChanged && onTimeSyncSettingsChange) {
+        onTimeSyncSettingsChange();
+      }
+      if (mqttSettingsChanged && onMqttSettingsChange) {
+        onMqttSettingsChange();
+      }
+    };
 
     // ── Special keys with side-effects ──
     if (key == "displayBright") {
@@ -485,7 +583,13 @@ struct ClockwiseWebServer
       { "mqttPort",   &ClockwiseParams::mqttPort },
       { "nightLdrThr", &ClockwiseParams::nightLdrThres },
     };
-    for (const auto& s : U16S) if (key == s.k) { p->*(s.f) = (uint16_t)value.toInt(); return true; }
+    for (const auto& s : U16S) if (key == s.k) {
+      uint16_t next = (uint16_t)value.toInt();
+      bool changed = (p->*(s.f) != next);
+      p->*(s.f) = next;
+      applyRuntimeSettings(changed);
+      return true;
+    }
 
     static const SettU32 U32S[] = {
       { "i2cSpeed", &ClockwiseParams::i2cSpeed },
@@ -496,7 +600,13 @@ struct ClockwiseWebServer
       { "reversePhase", &ClockwiseParams::reversePhase },
       { "mqttEnabled",  &ClockwiseParams::mqttEnabled },
     };
-    for (const auto& s : BS) if (key == s.k) { p->*(s.f) = (value == "1"); return true; }
+    for (const auto& s : BS) if (key == s.k) {
+      bool next = (value == "1");
+      bool changed = (p->*(s.f) != next);
+      p->*(s.f) = next;
+      applyRuntimeSettings(changed);
+      return true;
+    }
 
     static const SettS SS[] = {
       { "wifiSsid",     &ClockwiseParams::wifiSsid },
@@ -510,11 +620,17 @@ struct ClockwiseWebServer
       { "mqttUser",     &ClockwiseParams::mqttUser },
       { "mqttPass",     &ClockwiseParams::mqttPass },
       { "mqttPrefix",   &ClockwiseParams::mqttPrefix },
+      { "mqttDevId",    &ClockwiseParams::mqttDeviceId },
       { "activeWidget", &ClockwiseParams::activeWidget },
       { "bigclockSrv",  &ClockwiseParams::bigclockServer },
       { "bigclockFile", &ClockwiseParams::bigclockFile },
     };
-    for (const auto& s : SS) if (key == s.k) { p->*(s.f) = value; return true; }
+    for (const auto& s : SS) if (key == s.k) {
+      bool changed = (p->*(s.f) != value);
+      p->*(s.f) = value;
+      applyRuntimeSettings(changed);
+      return true;
+    }
 
     return false;
   }
@@ -600,13 +716,16 @@ struct ClockwiseWebServer
     } else if (method == "POST" && path == "/restore") {
       importConfig(client, key, value);
     } else if (method == "POST" && path == "/restart") {
+      ESP_LOGI("WebUI", "Restart requested from WebUI");
       client.println("HTTP/1.0 204 No Content");
       force_restart = true;
     } else if (method == "POST" && path == "/set") {
       ClockwiseParams::getInstance()->load();
       urlDecode(value);
-      handleSet(key, value);
+      const String oldValue = describeSettingValue(key);
+      const bool applied = handleSet(key, value);
       ClockwiseParams::getInstance()->save();
+      logUiSettingChange(key, oldValue, applied);
       client.println("HTTP/1.0 204 No Content");
     }
   }
@@ -676,6 +795,7 @@ struct ClockwiseWebServer
 
   void handleWidgetShow(WiFiClient client, const String& key, String value) {
     if (key != "spec") {
+      ESP_LOGW("WebUI", "Rejected widget show request: missing spec parameter");
       client.println("HTTP/1.0 400 Bad Request");
       client.println("Content-Type: application/json");
       client.println();
@@ -687,6 +807,7 @@ struct ClockwiseWebServer
     value.trim();
 
     if (!onWidgetSwitch) {
+      ESP_LOGW("WebUI", "Rejected widget show '%s': widget runtime unavailable", value.c_str());
       client.println("HTTP/1.0 503 Service Unavailable");
       client.println("Content-Type: application/json");
       client.println();
@@ -695,6 +816,7 @@ struct ClockwiseWebServer
     }
 
     if (!onWidgetSwitch(value)) {
+      ESP_LOGW("WebUI", "Rejected widget show '%s': widget command rejected", value.c_str());
       client.println("HTTP/1.0 422 Unprocessable Entity");
       client.println("Content-Type: application/json");
       client.println();
@@ -702,6 +824,7 @@ struct ClockwiseWebServer
       return;
     }
 
+    ESP_LOGI("WebUI", "Activated widget '%s'", value.c_str());
     client.println("HTTP/1.0 204 No Content");
   }
 
@@ -759,6 +882,7 @@ struct ClockwiseWebServer
     json += "\"mqttPort\":"      + String(p->mqttPort)                + ",";
     json += "\"mqttUser\":\""    + p->mqttUser                        + "\",";
     json += "\"mqttPrefix\":\""  + p->mqttPrefix                      + "\",";
+    json += "\"mqttDevId\":\""   + p->mqttDeviceId                    + "\",";
     json += "\"activeWidget\":\"" + p->activeWidget                   + "\"";
     // Note: mqttPass intentionally omitted from export for security
     json += "}";
@@ -826,14 +950,16 @@ struct ClockwiseWebServer
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_MQTT_ENABLED, ClockwiseParams::getInstance()->mqttEnabled);
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_MQTT_BROKER, ClockwiseParams::getInstance()->mqttBroker.c_str());
     client.printf(HEADER_TEMPLATE_D, ClockwiseParams::getInstance()->PREF_MQTT_PORT, ClockwiseParams::getInstance()->mqttPort);
+    client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_MQTT_USER, ClockwiseParams::getInstance()->mqttUser.c_str());
     client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_MQTT_PREFIX, ClockwiseParams::getInstance()->mqttPrefix.c_str());
+    client.printf(HEADER_TEMPLATE_S, ClockwiseParams::getInstance()->PREF_MQTT_DEVICE_ID, ClockwiseParams::getInstance()->mqttDeviceId.c_str());
 
     client.printf(HEADER_TEMPLATE_D, "clockfaceIndex", ClockwiseParams::getInstance()->clockFaceIndex);
     client.printf(HEADER_TEMPLATE_S, "clockfaceName", CWDriverRegistry::name(ClockwiseParams::getInstance()->clockFaceIndex));
     client.printf(HEADER_TEMPLATE_S, "activeWidget", ClockwiseParams::getInstance()->activeWidget.c_str());
     client.printf(HEADER_TEMPLATE_S, "CW_FW_VERSION", CW_FW_VERSION);
     client.printf(HEADER_TEMPLATE_S, "CW_FW_NAME", CW_FW_NAME);
-    client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", CLOCKFACE_NAME);
+    client.printf(HEADER_TEMPLATE_S, "CLOCKFACE_NAME", CWDriverRegistry::name(ClockwiseParams::getInstance()->clockFaceIndex));
     // Device IP address — useful for status display
     client.printf(HEADER_TEMPLATE_S, "wifiIP", WiFi.localIP().toString().c_str());
     uint64_t uptimeSec = (uint64_t)(esp_timer_get_time() / 1000000ULL);

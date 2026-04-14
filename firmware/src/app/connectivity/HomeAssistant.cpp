@@ -1,6 +1,6 @@
 #include "HomeAssistant.h"
 
-#include <CWMqtt.h>
+#include <connectivity/CWMqtt.h>
 
 void startHomeAssistantIntegration() {
   CWMqtt::getInstance()->begin();

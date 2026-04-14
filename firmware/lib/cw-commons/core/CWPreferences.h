@@ -67,6 +67,7 @@ struct ClockwiseParams
     const char* const PREF_MQTT_USER       = "mqttUser";
     const char* const PREF_MQTT_PASS       = "mqttPass";
     const char* const PREF_MQTT_PREFIX     = "mqttPrefix";
+    const char* const PREF_MQTT_DEVICE_ID  = "mqttDevId";
 
     // LED colour order constants
     static const uint8_t LED_ORDER_RGB = 0;
@@ -134,6 +135,7 @@ struct ClockwiseParams
     String   mqttUser;
     String   mqttPass;
     String   mqttPrefix;
+    String   mqttDeviceId;
 
     ClockwiseParams() {
         preferences.begin("clockwise", false);
@@ -195,6 +197,7 @@ struct ClockwiseParams
         preferences.putString(PREF_MQTT_USER, mqttUser);
         preferences.putString(PREF_MQTT_PASS, mqttPass);
         preferences.putString(PREF_MQTT_PREFIX, mqttPrefix);
+        preferences.putString(PREF_MQTT_DEVICE_ID, mqttDeviceId);
     }
 
     void saveClockfaceIndex()
@@ -279,5 +282,8 @@ struct ClockwiseParams
         mqttUser      = preferences.getString(PREF_MQTT_USER, "");
         mqttPass      = preferences.getString(PREF_MQTT_PASS, "");
         mqttPrefix    = preferences.getString(PREF_MQTT_PREFIX, "clockwise");
+        mqttDeviceId  = preferences.isKey(PREF_MQTT_DEVICE_ID)
+                        ? preferences.getString(PREF_MQTT_DEVICE_ID, "")
+                        : "";
     }
 };

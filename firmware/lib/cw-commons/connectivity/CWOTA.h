@@ -26,8 +26,8 @@
  */
 
 #include <Arduino.h>
-#include <CWPreferences.h>
-#include <StatusController.h>
+#include <core/CWPreferences.h>
+#include <display/StatusController.h>
 #include "esp_log.h"
 
 #ifdef __cplusplus

@@ -4,7 +4,7 @@
 #include <Adafruit_GFX.h>
 #include <functional>
 
-#include "CWClockfaceDriver.h"
+#include "widgets/clockface/CWClockfaceDriver.h"
 
 class CWWidgetManager {
 public:

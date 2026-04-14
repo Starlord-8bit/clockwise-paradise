@@ -1,6 +1,6 @@
 #include "DisplayControl.h"
 
-#include <CWPreferences.h>
+#include <core/CWPreferences.h>
 #include <esp_log.h>
 
 static constexpr uint8_t MIN_BRIGHT_DISPLAY_ON = 4;

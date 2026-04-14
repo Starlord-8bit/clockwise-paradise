@@ -1,4 +1,4 @@
-#include <CWClockfaceDriver.h>
+#include <widgets/clockface/CWClockfaceDriver.h>
 
 // Registry definition must live in main/src so clockface symbols resolve at link time.
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <CWPreferences.h>
+#include <core/CWPreferences.h>
 
 #include "../core/AppState.h"
 

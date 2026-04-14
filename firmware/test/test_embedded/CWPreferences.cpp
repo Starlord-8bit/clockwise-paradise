@@ -2,7 +2,7 @@
 
 #include "unity.h"
 #include "Arduino.h"
-#include "CWPreferences.h"
+#include "core/CWPreferences.h"
 #include <Update.h>
 #include <WebServer.h>
 #include <DNSServer.h>

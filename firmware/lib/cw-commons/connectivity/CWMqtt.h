@@ -24,9 +24,10 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <ctype.h>
 #include <functional>
-#include <CWPreferences.h>
-#include <StatusController.h>
+#include <core/CWPreferences.h>
+#include <display/StatusController.h>
 #include "esp_log.h"
 
 #ifdef __cplusplus
@@ -54,7 +55,18 @@ public:
 
     void begin() {
         auto* p = ClockwiseParams::getInstance();
-        if (!p->mqttEnabled || p->mqttBroker.isEmpty()) return;
+        if (_authRetryBlocked) {
+            ESP_LOGW("MQTT", "Auth retries blocked until reboot or settings update");
+            return;
+        }
+        if (!p->mqttEnabled || p->mqttBroker.isEmpty()) {
+            _enabled = false;
+            return;
+        }
+
+        if (_client) {
+            stopClient();
+        }
 
         // Use last 6 hex digits of MAC as unique device ID
         uint8_t mac[6];
@@ -62,8 +74,14 @@ public:
         char mac_str[13];
         snprintf(mac_str, sizeof(mac_str), "%02x%02x%02x%02x%02x%02x",
                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-        _device_id = String("clockwise_paradise_") + mac_str;
-        _base_topic = p->mqttPrefix + "/" + mac_str;
+
+        String mqtt_node_id = sanitizeMqttNodeId(p->mqttDeviceId);
+        if (mqtt_node_id.isEmpty()) {
+            mqtt_node_id = String(mac_str);
+        }
+
+        _device_id = String("clockwise_paradise_") + mqtt_node_id;
+        _base_topic = p->mqttPrefix + "/" + mqtt_node_id;
 
         String broker_uri = "mqtt://" + p->mqttBroker + ":" + String(p->mqttPort);
         String avail_topic = _base_topic + "/availability";
@@ -79,15 +97,42 @@ public:
         cfg.lwt_retain   = 1;
 
         _client = esp_mqtt_client_init(&cfg);
+        if (!_client) {
+            ESP_LOGE("MQTT", "Failed to initialize MQTT client");
+            _enabled = false;
+            return;
+        }
         esp_mqtt_client_register_event(_client, MQTT_EVENT_ANY, _event_handler, this);
-        esp_mqtt_client_start(_client);
+        esp_err_t start_err = esp_mqtt_client_start(_client);
+        if (start_err != ESP_OK) {
+            ESP_LOGE("MQTT", "Failed to start client: %s", esp_err_to_name(start_err));
+            esp_mqtt_client_destroy(_client);
+            _client = nullptr;
+            _enabled = false;
+            return;
+        }
+        _started = true;
 
-        ESP_LOGI("MQTT", "Connecting to %s (device_id: %s)",
-                      broker_uri.c_str(), _device_id.c_str());
+        ESP_LOGI("MQTT", "Connecting to %s (device_id: %s, topic_node: %s)",
+                      broker_uri.c_str(), _device_id.c_str(), mqtt_node_id.c_str());
         _enabled = true;
     }
 
+    void reconfigureFromPreferences() {
+        const unsigned long now = millis();
+        if ((long)(now - _nextReconfigureAllowedMs) < 0) {
+            _reconfigurePending = true;
+            _pendingReconfigureAtMs = _nextReconfigureAllowedMs;
+            return;
+        }
+        applyReconfigureNow();
+    }
+
     void loop() {
+        if (_reconfigurePending && (long)(millis() - _pendingReconfigureAtMs) >= 0) {
+            _reconfigurePending = false;
+            applyReconfigureNow();
+        }
         if (!_enabled || !_connected) return;
         if (millis() - _lastPublish > MQTT_STATE_INTERVAL_MS) {
             publishState();
@@ -119,6 +164,71 @@ private:
     long    _lastPublish = 0;
     String  _device_id;
     String  _base_topic;
+    uint8_t _authFailureCount = 0;
+    bool    _authRetryBlocked = false;
+    bool    _started = false;
+    bool    _reconfigurePending = false;
+    unsigned long _pendingReconfigureAtMs = 0;
+    unsigned long _nextReconfigureAllowedMs = 0;
+
+    void applyReconfigureNow() {
+        ESP_LOGI("MQTT", "Applying MQTT settings without reboot");
+        _authRetryBlocked = false;
+        _authFailureCount = 0;
+        _nextReconfigureAllowedMs = millis() + 800;
+        stopClient();
+        begin();
+    }
+
+    String sanitizeMqttNodeId(const String& raw) {
+        String src = raw;
+        src.trim();
+        String out;
+        out.reserve(src.length());
+        for (size_t i = 0; i < src.length(); ++i) {
+            const char c = src[i];
+            if (isalnum((unsigned char)c) || c == '_' || c == '-') {
+                out += (char)tolower((unsigned char)c);
+            } else if (c == ' ') {
+                out += '_';
+            }
+        }
+        return out;
+    }
+
+    void stopClient() {
+        if (_client) {
+            if (_started) {
+                esp_mqtt_client_stop(_client);
+            }
+            esp_mqtt_client_destroy(_client);
+            _client = nullptr;
+        }
+        _started = false;
+        _connected = false;
+        _enabled = false;
+    }
+
+    bool isAuthFailure(const esp_mqtt_event_handle_t ev) {
+        if (!ev || !ev->error_handle) return false;
+        auto* err = ev->error_handle;
+        if (err->error_type != MQTT_ERROR_TYPE_CONNECTION_REFUSED) return false;
+        const int rc = err->connect_return_code;
+        // MQTT CONNACK 0x04 (bad username/password), 0x05 (not authorized)
+        return rc == 4 || rc == 5;
+    }
+
+    void handleAuthFailure() {
+        if (_authFailureCount < 255) {
+            _authFailureCount++;
+        }
+        ESP_LOGW("MQTT", "Broker authentication failed (%u/3)", _authFailureCount);
+        if (_authFailureCount >= 3) {
+            _authRetryBlocked = true;
+            ESP_LOGE("MQTT", "MQTT login failed 3 times; stopping retries until reboot or setting change");
+            stopClient();
+        }
+    }
 
     // ── HA MQTT Discovery ────────────────────────────────────────────────────
 
@@ -231,22 +341,45 @@ private:
         if (!topic.startsWith(set_prefix)) return;
         String prop = topic.substring(set_prefix.length());
 
+        auto logChangeU8 = [&](const char* key, uint8_t oldVal, uint8_t newVal) {
+            if (oldVal == newVal) return;
+            ESP_LOGI("DeviceCfg", "Setting changed via MQTT: %s: %u -> %u",
+                     key, oldVal, newVal);
+        };
+
         if (prop == "brightness") {
             int val = payload.toInt();
             if (val >= 0 && val <= 255) {
+              uint8_t oldVal = p->displayBright;
               p->displayBright = val;
               p->save();
+              logChangeU8("displayBright", oldVal, p->displayBright);
               if (onBrightnessChange) onBrightnessChange((uint8_t)val);
             }
         } else if (prop == "nightMode") {
             int val = payload.toInt();
-            if (val >= 0 && val <= 2) { p->nightMode = val; p->save(); }
+            if (val >= 0 && val <= 2) {
+                uint8_t oldVal = p->nightMode;
+                p->nightMode = val;
+                p->save();
+                logChangeU8("nightMode", oldVal, p->nightMode);
+            }
         } else if (prop == "nightLevel") {
             int val = payload.toInt();
-            if (val >= 1 && val <= 5) { p->nightLevel = val; p->save(); }
+            if (val >= 1 && val <= 5) {
+                uint8_t oldVal = p->nightLevel;
+                p->nightLevel = val;
+                p->save();
+                logChangeU8("nightLevel", oldVal, p->nightLevel);
+            }
         } else if (prop == "autoChange") {
             int val = payload.toInt();
-            if (val >= 0 && val <= 2) { p->autoChange = val; p->save(); }
+            if (val >= 0 && val <= 2) {
+                uint8_t oldVal = p->autoChange;
+                p->autoChange = val;
+                p->save();
+                logChangeU8("autoChange", oldVal, p->autoChange);
+            }
         } else if (prop == "clockface") {
             uint8_t idx = (uint8_t)payload.toInt();
             if (onClockfaceSwitch) {
@@ -265,7 +398,7 @@ private:
                 ESP_LOGW("MQTT", "widget switch requested but callback not wired");
             }
         } else if (prop == "restart") {
-            StatusController::getInstance()->forceRestart();
+            StatusController::getInstance()->forceRestart("MQTT restart command received");
         }
 
         publishState();
@@ -282,6 +415,7 @@ private:
         switch ((esp_mqtt_event_id_t)event_id) {
             case MQTT_EVENT_CONNECTED:
                 self->_connected = true;
+                self->_authFailureCount = 0;
                 ESP_LOGI("MQTT", "Connected");
                 {
                     // Publish availability + subscribe to commands
@@ -296,7 +430,15 @@ private:
 
             case MQTT_EVENT_DISCONNECTED:
                 self->_connected = false;
-                ESP_LOGW("MQTT", "Disconnected — will retry");
+                if (!self->_authRetryBlocked) {
+                    ESP_LOGW("MQTT", "Disconnected — will retry");
+                }
+                break;
+
+            case MQTT_EVENT_ERROR:
+                if (self->isAuthFailure(ev)) {
+                    self->handleAuthFailure();
+                }
                 break;
 
             case MQTT_EVENT_DATA: {

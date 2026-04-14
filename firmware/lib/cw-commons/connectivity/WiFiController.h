@@ -3,8 +3,8 @@
 #include "ImprovWiFiLibrary.h"
 #include <WiFi.h>
 #include <ESPmDNS.h>
-#include "CWWebServer.h"
-#include "StatusController.h"
+#include "web/CWWebServer.h"
+#include "display/StatusController.h"
 #include <WiFiManager.h>
 #include "esp_log.h"
 
@@ -13,7 +13,7 @@ extern ImprovWiFi improvSerial;
 struct WiFiController
 {
   long elapsedTimeOffline = 0;
-  bool connectionSucessfulOnce;
+  bool connectionSucessfulOnce = false;
 
   static void onImprovWiFiErrorCb(ImprovTypes::Error err)
   {
@@ -46,7 +46,7 @@ struct WiFiController
         elapsedTimeOffline = millis();
 
       if ((millis() - elapsedTimeOffline) > 1000 * 60 * 5)  // restart if clockface is not showed and is 5min offline
-        StatusController::getInstance()->forceRestart();
+        StatusController::getInstance()->forceRestart("WiFi offline for more than 5 minutes");
 
       return false;
     }
@@ -60,7 +60,17 @@ struct WiFiController
   bool alternativeSetupMethod()
   {
     WiFiManager wifiManager;
-     wifiManager.setConfigPortalTimeout(600); // 10 min window to configure WiFi via AP
+    wifiManager.setConfigPortalTimeout(600); // 10 min window to configure WiFi via AP
+
+    // Reset WiFi state before launching AP portal; this improves reliability
+    // when STA connection attempts failed previously.
+    WiFi.persistent(false);
+    WiFi.disconnect(true, true);
+    delay(500);
+    WiFi.mode(WIFI_AP_STA);
+    delay(500);
+
+    ESP_LOGW("WiFi", "Starting WiFiManager AP portal: Clockwise-Wifi");
 
     bool success = wifiManager.startConfigPortal("Clockwise-Wifi");
 
@@ -69,6 +79,10 @@ struct WiFiController
       onImprovWiFiConnectedCb(WiFi.SSID().c_str(), WiFi.psk().c_str());
       ESP_LOGI("WiFi", "Connected via WiFiManager to %s, IP address %s", WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
       connectionSucessfulOnce = success;
+    }
+    else
+    {
+      ESP_LOGE("WiFi", "WiFiManager AP portal failed/timed out");
     }
 
     return success;

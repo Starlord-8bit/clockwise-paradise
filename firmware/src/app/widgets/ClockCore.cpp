@@ -1,6 +1,6 @@
 #include "ClockCore.h"
 
-#include <CWClockfaceDriver.h>
+#include <widgets/clockface/CWClockfaceDriver.h>
 
 void configureWidgetManager(AppState& state, ClockwiseParams* prefs) {
   CWDriverRegistry::get(prefs->clockFaceIndex);

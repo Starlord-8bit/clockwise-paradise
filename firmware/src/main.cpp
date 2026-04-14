@@ -1,10 +1,10 @@
 #include <Arduino.h>
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include "esp_ota_ops.h"
-#include <CWPreferences.h>
-#include <CWWebServer.h>
+#include <core/CWPreferences.h>
+#include <web/CWWebServer.h>
 #include <Locator.h>
-#include <StatusController.h>
+#include <display/StatusController.h>
 #include "esp_log.h"
 
 #include "app/core/AppState.h"
@@ -27,6 +27,10 @@ static AppState appState;
 void setup()
 {
   Serial.begin(115200);
+  esp_log_level_set("wifi", ESP_LOG_WARN);
+  esp_log_level_set("wifi_init", ESP_LOG_WARN);
+  esp_log_level_set("gpio", ESP_LOG_ERROR);
+
   pinMode(ESP32_LED_BUILTIN, OUTPUT);
   StatusController::getInstance()->blink_led(5, 100);
 
@@ -34,8 +38,6 @@ void setup()
   auto* p = ClockwiseParams::getInstance();
 
   pinMode(p->ldrPin, INPUT);
-
-  preconnectWifiBeforeDisplay(p);
 
   displaySetup(appState, p->ledColorOrder, p->reversePhase, p->displayBright,
                p->displayRotation, p->driver, p->i2cSpeed, p->E_pin);
@@ -58,15 +60,17 @@ void setup()
 
   StatusController::getInstance()->wifiConnecting();
   if (!connectWifiAndTime(appState, p)) {
-    ESP_LOGW("WiFi", "AP config portal timed out without configuration - restarting");
-    delay(3000);
-    ESP.restart();
+    ESP_LOGE("Boot", "Startup failed: WiFi/time setup did not complete");
+    StatusController::getInstance()->forceRestart("WiFi setup timeout or invalid credentials");
   }
 
   activateStartupWidget(appState, p);
 
   startHomeAssistantIntegration();
   bindMqttCallbacks(appState);
+
+  String bootTs = appState.dateTime.getFormattedTime("Y-m-d H:i:s");
+  Serial.printf("Successful boot at %s\n", bootTs.c_str());
 
 }
 
@@ -81,8 +85,9 @@ void loop()
     mqttLoop();
   }
 
+  appState.widgetManager.update();
+
   if (appState.wifi.connectionSucessfulOnce) {
-    appState.widgetManager.update();
     uptimeCheck(appState);
     autoChangeCheck(appState);
   }

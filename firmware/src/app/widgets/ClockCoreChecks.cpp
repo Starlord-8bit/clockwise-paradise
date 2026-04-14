@@ -1,8 +1,8 @@
 #include "ClockCoreChecks.h"
 
-#include <CWClockfaceDriver.h>
-#include <CWPreferences.h>
-#include <CWWebServer.h>
+#include <widgets/clockface/CWClockfaceDriver.h>
+#include <core/CWPreferences.h>
+#include <web/CWWebServer.h>
 #include <esp_log.h>
 
 void autoChangeCheck(AppState& state) {

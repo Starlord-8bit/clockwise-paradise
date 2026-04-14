@@ -29,7 +29,7 @@
 
 #include <Arduino.h>
 #include <Adafruit_GFX.h>
-#include "CWDateTime.h"
+#include "core/CWDateTime.h"
 #include "esp_log.h"
 
 // ─── Driver descriptor ───────────────────────────────────────────────────────

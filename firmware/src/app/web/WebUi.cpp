@@ -1,7 +1,8 @@
 #include "WebUi.h"
 
-#include <CWClockfaceDriver.h>
-#include <CWWebServer.h>
+#include <widgets/clockface/CWClockfaceDriver.h>
+#include <connectivity/CWMqtt.h>
+#include <web/CWWebServer.h>
 
 void bindWebUiCallbacks(AppState& state) {
   ClockwiseWebServer::getInstance()->onClockfaceSwitch = [&state](uint8_t idx) {
@@ -36,5 +37,15 @@ void bindWebUiCallbacks(AppState& state) {
 
   ClockwiseWebServer::getInstance()->on24hFormatChange = [&state](bool use24) {
     state.dateTime.set24hFormat(use24);
+  };
+
+  ClockwiseWebServer::getInstance()->onTimeSyncSettingsChange = [&state]() {
+    auto* prefs = ClockwiseParams::getInstance();
+    state.dateTime.begin(prefs->timeZone.c_str(), prefs->use24hFormat,
+                         prefs->ntpServer.c_str(), prefs->manualPosix.c_str());
+  };
+
+  ClockwiseWebServer::getInstance()->onMqttSettingsChange = []() {
+    CWMqtt::getInstance()->reconfigureFromPreferences();
   };
 }

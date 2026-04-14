@@ -1,6 +1,6 @@
 #include "Wifi.h"
 
-#include <StatusController.h>
+#include <display/StatusController.h>
 #include <WiFi.h>
 #include <esp_log.h>
 
