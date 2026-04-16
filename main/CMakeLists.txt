@@ -12,7 +12,7 @@ idf_component_register(
 				"../firmware/src/app/widgets/ClockCoreChecks.cpp"
 				"../firmware/src/CWClockfaceRegistry.cpp"
 			INCLUDE_DIRS ${PROJECT_DIR}/firmware/src
-			PRIV_REQUIRES ESP32-HUB75-MatrixPanel-I2S-DMA cw-commons cw-gfx-engine WiFiManager Improv-WiFi-Library arduino Adafruit-GFX-Library esp_https_ota mqtt app_update ${CLOCKFACES}
+			PRIV_REQUIRES ESP32-HUB75-MatrixPanel-I2S-DMA cw-commons cw-logic cw-gfx-engine WiFiManager Improv-WiFi-Library arduino Adafruit-GFX-Library esp_https_ota mqtt app_update ${CLOCKFACES}
                        )
 
 # Read version from version.txt — single source of truth across all build systems.

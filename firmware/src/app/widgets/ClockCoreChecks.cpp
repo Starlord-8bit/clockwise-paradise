@@ -2,6 +2,7 @@
 
 #include <widgets/clockface/CWClockfaceDriver.h>
 #include <core/CWPreferences.h>
+#include <core/CWLogic.h>
 #include <web/CWWebServer.h>
 #include <esp_log.h>
 
@@ -20,15 +21,9 @@ void autoChangeCheck(AppState& state) {
 
   if (today != state.lastAutoChangeDay) {
     state.lastAutoChangeDay = today;
-    uint8_t next;
-    if (prefs->autoChange == ClockwiseParams::AUTO_CHANGE_SEQUENCE) {
-      next = (prefs->clockFaceIndex + 1) % CWDriverRegistry::COUNT;
-    } else {
-      next = random(CWDriverRegistry::COUNT);
-      if (next == prefs->clockFaceIndex) {
-        next = (next + 1) % CWDriverRegistry::COUNT;
-      }
-    }
+    uint8_t next = cw::nextAutoChangeIndex(
+        prefs->clockFaceIndex, CWDriverRegistry::COUNT,
+        prefs->autoChange, (uint8_t)random(CWDriverRegistry::COUNT));
 
     if (state.widgetManager.activateClockWidget(next)) {
       prefs->clockFaceIndex = next;

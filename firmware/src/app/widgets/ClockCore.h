@@ -4,6 +4,6 @@
 
 #include "../core/AppState.h"
 
-void configureWidgetManager(AppState& state, ClockwiseParams* prefs);
+void configureWidgetManager(AppState& state, const ClockwiseParams* prefs);
 
 void activateStartupWidget(AppState& state, ClockwiseParams* prefs);

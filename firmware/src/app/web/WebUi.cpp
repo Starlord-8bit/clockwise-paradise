@@ -13,12 +13,12 @@ void bindWebUiCallbacks(AppState& state) {
   };
 
   ClockwiseWebServer::getInstance()->onWidgetSwitch = [&state](const String& widgetName) {
-    auto* prefs = ClockwiseParams::getInstance();
+    const auto* prefs = ClockwiseParams::getInstance();
     return state.widgetManager.activateWidgetByName(widgetName, prefs->clockFaceIndex);
   };
 
   ClockwiseWebServer::getInstance()->onWidgetStateJson = [&state]() {
-    auto* prefs = ClockwiseParams::getInstance();
+    const auto* prefs = ClockwiseParams::getInstance();
     String json = "{";
     json += "\"activeWidget\":\"" + String(state.widgetManager.activeWidgetName()) + "\"";
     json += ",\"timerRemainingSec\":" + String(state.widgetManager.timerRemainingSeconds());

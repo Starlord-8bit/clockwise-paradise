@@ -12,7 +12,7 @@ void bindMqttCallbacks(AppState& state) {
   };
 
   CWMqtt::getInstance()->onWidgetSwitch = [&state](const String& widgetName) {
-    auto* prefs = ClockwiseParams::getInstance();
+    const auto* prefs = ClockwiseParams::getInstance();
     return state.widgetManager.activateWidgetByName(widgetName, prefs->clockFaceIndex);
   };
 

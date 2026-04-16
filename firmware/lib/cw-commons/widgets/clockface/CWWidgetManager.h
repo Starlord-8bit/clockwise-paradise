@@ -113,7 +113,7 @@ private:
             return false;
         }
 
-        if (_currentClockface && *_currentClockface && (*_currentClockface)->teardown) {
+        if (*_currentClockface && (*_currentClockface)->teardown) {
             (*_currentClockface)->teardown();
         }
 

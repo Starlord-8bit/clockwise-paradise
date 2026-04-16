@@ -20,6 +20,10 @@
  *   sensor   — Uptime (days)
  *   binary_sensor — Night Active
  *   button   — Restart
+ *
+ * Implementation split:
+ *   CWMqttDiscovery.h — HA discovery entity table + publishDiscovery()
+ *   CWMqttCommands.h  — handleCommand() dispatch + publishState()
  */
 
 #include <Arduino.h>
@@ -27,6 +31,7 @@
 #include <ctype.h>
 #include <functional>
 #include <core/CWPreferences.h>
+#include <core/CWLogic.h>
 #include <display/StatusController.h>
 #include "esp_log.h"
 
@@ -61,6 +66,10 @@ public:
         }
         if (!p->mqttEnabled || p->mqttBroker.isEmpty()) {
             _enabled = false;
+            return;
+        }
+        if (WiFi.status() != WL_CONNECTED) {
+            ESP_LOGW("MQTT", "WiFi not connected — skipping MQTT start");
             return;
         }
 
@@ -140,23 +149,6 @@ public:
         }
     }
 
-    void publishState() {
-        if (!_enabled || !_connected) return;
-        auto* p = ClockwiseParams::getInstance();
-
-        String payload = "{\"brightness\":" + String(p->displayBright)
-            + ",\"nightMode\":" + String(p->nightMode)
-            + ",\"nightLevel\":" + String(p->nightLevel)
-            + ",\"autoChange\":" + String(p->autoChange)
-            + ",\"clockface\":" + String(p->clockFaceIndex)
-            + ",\"activeWidget\":\"" + p->activeWidget + "\""
-            + ",\"nightActive\":false"
-            + ",\"totalDays\":" + String(p->totalDays)
-            + ",\"version\":\"" + String(CW_FW_VERSION) + "\"}";
-        String topic = _base_topic + "/state";
-        esp_mqtt_client_publish(_client, topic.c_str(), payload.c_str(), 0, 1, 0);
-    }
-
 private:
     esp_mqtt_client_handle_t _client  = nullptr;
     bool    _enabled   = false;
@@ -175,25 +167,13 @@ private:
         ESP_LOGI("MQTT", "Applying MQTT settings without reboot");
         _authRetryBlocked = false;
         _authFailureCount = 0;
-        _nextReconfigureAllowedMs = millis() + 800;
+        _nextReconfigureAllowedMs = millis() + 2000;
         stopClient();
         begin();
     }
 
     String sanitizeMqttNodeId(const String& raw) {
-        String src = raw;
-        src.trim();
-        String out;
-        out.reserve(src.length());
-        for (size_t i = 0; i < src.length(); ++i) {
-            const char c = src[i];
-            if (isalnum((unsigned char)c) || c == '_' || c == '-') {
-                out += (char)tolower((unsigned char)c);
-            } else if (c == ' ') {
-                out += '_';
-            }
-        }
-        return out;
+        return String(cw::sanitizeMqttNodeId(raw.c_str()).c_str());
     }
 
     void stopClient() {
@@ -230,179 +210,11 @@ private:
         }
     }
 
-    // ── HA MQTT Discovery ────────────────────────────────────────────────────
+    // ── HA MQTT Discovery (see CWMqttDiscovery.h) ───────────────────────────
+    #include "CWMqttDiscovery.h"
 
-    void publishDiscovery() {
-        auto* p = ClockwiseParams::getInstance();
-
-        // Device info block (shared across all entities)
-        // We build it once as a JSON fragment
-        String dev_str = "{\"identifiers\":[\"" + _device_id + "\"]"
-            ",\"name\":\"Clockwise Paradise\""
-            ",\"model\":\"Clockwise Paradise\""
-            ",\"manufacturer\":\"Starlord-8bit\""
-            ",\"sw_version\":\"" + String(CW_FW_VERSION) + "\"}";
-
-        String avail  = _base_topic + "/availability";
-        String state  = _base_topic + "/state";
-        String set    = _base_topic + "/set/";
-
-        struct Entity {
-            const char* type;
-            const char* object_id;
-            const char* name;
-            const char* value_template;
-            const char* command_topic_suffix;  // nullptr = read-only
-            const char* extra_json;            // appended to discovery payload
-        };
-
-        Entity entities[] = {
-            {
-                "number", "brightness", "Brightness",
-                "{{ value_json.brightness }}",
-                "brightness",
-                R"(,"min":0,"max":255,"step":1,"icon":"mdi:brightness-5")"
-            },
-            {
-                "select", "night_mode", "Night Mode",
-                "{{ value_json.nightMode }}",
-                "nightMode",
-                R"(,"options":["0","1","2"],"icon":"mdi:weather-night")"
-            },
-            {
-                "number", "night_level", "Night Brightness Level",
-                "{{ value_json.nightLevel }}",
-                "nightLevel",
-                R"(,"min":1,"max":5,"step":1,"icon":"mdi:moon-waning-crescent")"
-            },
-            {
-                "select", "auto_change", "Auto-change Clockface",
-                "{{ value_json.autoChange }}",
-                "autoChange",
-                R"(,"options":["0","1","2"],"icon":"mdi:shuffle-variant")"
-            },
-            {
-                "sensor", "uptime", "Uptime (days)",
-                "{{ value_json.totalDays }}",
-                nullptr,
-                R"(,"icon":"mdi:timer-outline","state_class":"total_increasing")"
-            },
-            {
-                "binary_sensor", "night_active", "Night Active",
-                "{{ 'ON' if value_json.nightActive else 'OFF' }}",
-                nullptr,
-                R"(,"device_class":"running","icon":"mdi:weather-night")"
-            },
-        };
-
-        for (auto& e : entities) {
-            String disc_topic = String(MQTT_DISCOVERY_PREFIX) + "/" + e.type + "/" +
-                                _device_id + "/" + e.object_id + "/config";
-
-            // Build payload manually to keep memory low on ESP32
-            String payload = "{";
-            payload += "\"name\":\"" + String(e.name) + "\",";
-            payload += "\"unique_id\":\"" + _device_id + "_" + e.object_id + "\",";
-            payload += "\"availability_topic\":\"" + avail + "\",";
-            payload += "\"state_topic\":\"" + state + "\",";
-            payload += "\"value_template\":\"" + String(e.value_template) + "\"";
-            if (e.command_topic_suffix) {
-                payload += ",\"command_topic\":\"" + set + e.command_topic_suffix + "\"";
-            }
-            payload += ",\"device\":" + dev_str;
-            payload += e.extra_json;
-            payload += "}";
-
-            esp_mqtt_client_publish(_client, disc_topic.c_str(),
-                                    payload.c_str(), 0, 1, 1);  // retain=1
-        }
-
-        // Restart button
-        String btn_topic = String(MQTT_DISCOVERY_PREFIX) + "/button/" +
-                           _device_id + "/restart/config";
-        String btn_payload = "{\"name\":\"Restart\","
-            "\"unique_id\":\"" + _device_id + "_restart\","
-            "\"command_topic\":\"" + set + "restart\","
-            "\"availability_topic\":\"" + avail + "\","
-            "\"device\":" + dev_str + ","
-            "\"icon\":\"mdi:restart\"}";
-        esp_mqtt_client_publish(_client, btn_topic.c_str(),
-                                btn_payload.c_str(), 0, 1, 1);
-
-        ESP_LOGI("MQTT", "Discovery payloads published");
-    }
-
-    // ── Command handler ──────────────────────────────────────────────────────
-
-    void handleCommand(const String& topic, const String& payload) {
-        auto* p = ClockwiseParams::getInstance();
-        String set_prefix = _base_topic + "/set/";
-
-        if (!topic.startsWith(set_prefix)) return;
-        String prop = topic.substring(set_prefix.length());
-
-        auto logChangeU8 = [&](const char* key, uint8_t oldVal, uint8_t newVal) {
-            if (oldVal == newVal) return;
-            ESP_LOGI("DeviceCfg", "Setting changed via MQTT: %s: %u -> %u",
-                     key, oldVal, newVal);
-        };
-
-        if (prop == "brightness") {
-            int val = payload.toInt();
-            if (val >= 0 && val <= 255) {
-              uint8_t oldVal = p->displayBright;
-              p->displayBright = val;
-              p->save();
-              logChangeU8("displayBright", oldVal, p->displayBright);
-              if (onBrightnessChange) onBrightnessChange((uint8_t)val);
-            }
-        } else if (prop == "nightMode") {
-            int val = payload.toInt();
-            if (val >= 0 && val <= 2) {
-                uint8_t oldVal = p->nightMode;
-                p->nightMode = val;
-                p->save();
-                logChangeU8("nightMode", oldVal, p->nightMode);
-            }
-        } else if (prop == "nightLevel") {
-            int val = payload.toInt();
-            if (val >= 1 && val <= 5) {
-                uint8_t oldVal = p->nightLevel;
-                p->nightLevel = val;
-                p->save();
-                logChangeU8("nightLevel", oldVal, p->nightLevel);
-            }
-        } else if (prop == "autoChange") {
-            int val = payload.toInt();
-            if (val >= 0 && val <= 2) {
-                uint8_t oldVal = p->autoChange;
-                p->autoChange = val;
-                p->save();
-                logChangeU8("autoChange", oldVal, p->autoChange);
-            }
-        } else if (prop == "clockface") {
-            uint8_t idx = (uint8_t)payload.toInt();
-            if (onClockfaceSwitch) {
-                onClockfaceSwitch(idx);
-            } else {
-                ESP_LOGW("MQTT", "clockface switch requested but callback not wired");
-            }
-        } else if (prop == "widget") {
-            String normalized = payload;
-            normalized.toLowerCase();
-            if (onWidgetSwitch) {
-                if (!onWidgetSwitch(normalized)) {
-                    ESP_LOGW("MQTT", "Widget '%s' was rejected", normalized.c_str());
-                }
-            } else {
-                ESP_LOGW("MQTT", "widget switch requested but callback not wired");
-            }
-        } else if (prop == "restart") {
-            StatusController::getInstance()->forceRestart("MQTT restart command received");
-        }
-
-        publishState();
-    }
+    // ── Command handler + state publisher (see CWMqttCommands.h) ────────────
+    #include "CWMqttCommands.h"
 
     // ── ESP-IDF event handler ────────────────────────────────────────────────
 

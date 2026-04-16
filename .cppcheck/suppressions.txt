@@ -1,0 +1,11 @@
+# Targeted advisory suppressions for existing firmware architecture choices.
+# Keep this list narrow and file-scoped.
+
+# Member helpers intentionally live in header-only singleton structs/classes.
+functionStatic:firmware/lib/cw-commons/display/StatusController.h
+functionStatic:firmware/lib/cw-commons/connectivity/CWOTA.h
+functionStatic:firmware/lib/cw-commons/connectivity/CWMqtt.h
+functionStatic:firmware/lib/cw-commons/web/CWWebServer.h
+
+# Table-driven settings parser intentionally uses compact loops for readability.
+useStlAlgorithm:firmware/lib/cw-commons/web/CWWebServer.h

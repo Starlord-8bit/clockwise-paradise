@@ -21,6 +21,7 @@
 #include "web/SettingsWebPage.h"
 
 #include "widgets/clockface/CWClockfaceDriver.h"
+#include <core/CWLogic.h>
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
 #include "esp_timer.h"
@@ -314,9 +315,7 @@ struct ClockwiseWebServer
     if (other && esp_ota_get_partition_description(other, &other_desc) == ESP_OK) {
       esp_ota_img_states_t other_state = ESP_OTA_IMG_UNDEFINED;
       esp_ota_get_state_partition(other, &other_state);
-      // INVALID and ABORTED mean the bootloader has already rejected this slot — don't offer it.
-      // UNDEFINED is fine (factory/never-OTA'd slot with a valid image header).
-      other_valid = (other_state != ESP_OTA_IMG_INVALID && other_state != ESP_OTA_IMG_ABORTED);
+      other_valid = cw::ota::isRollbackEligible(static_cast<uint32_t>(other_state));
     }
 
     String json = "{";
@@ -350,7 +349,7 @@ struct ClockwiseWebServer
     if (other && esp_ota_get_partition_description(other, &other_desc) == ESP_OK) {
       esp_ota_img_states_t other_state = ESP_OTA_IMG_UNDEFINED;
       esp_ota_get_state_partition(other, &other_state);
-      other_valid = (other_state != ESP_OTA_IMG_INVALID && other_state != ESP_OTA_IMG_ABORTED);
+      other_valid = cw::ota::isRollbackEligible(static_cast<uint32_t>(other_state));
     }
 
     if (!other_valid) {
@@ -392,16 +391,13 @@ struct ClockwiseWebServer
   struct SettS   { const char* k; String   ClockwiseParams::*f; };
 
   static void urlDecode(String& v) {
-    v.replace("%2F", "/"); v.replace("%2f", "/");
-    v.replace("%3A", ":"); v.replace("%3a", ":");
-    v.replace("%20", " ");
-    v.replace("%40", "@");
-    v.replace("%2B", "+"); v.replace("%2b", "+");
-    v.replace("%2C", ","); v.replace("%2c", ",");
+    std::string s(v.c_str());
+    cw::urlDecode(s);
+    v = s.c_str();
   }
 
   static bool isSensitiveKey(const String& key) {
-    return key == "wifiPwd" || key == "mqttPass";
+    return cw::isSensitiveKey(key.c_str());
   }
 
   static String maskedLogValue(const String& key, const String& value) {
@@ -733,7 +729,7 @@ struct ClockwiseWebServer
 
 
   void sendClockfaceList(WiFiClient client) {
-    auto* p = ClockwiseParams::getInstance();
+    const auto* p = ClockwiseParams::getInstance();
     client.println("HTTP/1.0 200 OK");
     client.println("Content-Type: application/json");
     client.println();
@@ -750,7 +746,7 @@ struct ClockwiseWebServer
   }
 
   void sendWidgetList(WiFiClient client) {
-    auto* p = ClockwiseParams::getInstance();
+    const auto* p = ClockwiseParams::getInstance();
     client.println("HTTP/1.0 200 OK");
     client.println("Content-Type: application/json");
     client.println();
@@ -774,7 +770,7 @@ struct ClockwiseWebServer
   }
 
   void sendWidgetState(WiFiClient client) {
-    auto* p = ClockwiseParams::getInstance();
+    const auto* p = ClockwiseParams::getInstance();
     client.println("HTTP/1.0 200 OK");
     client.println("Content-Type: application/json");
     client.println();

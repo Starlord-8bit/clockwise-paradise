@@ -9,7 +9,7 @@ set (INCLUDE_DIRS ${PROJECT_DIR}/components/ezTime/src)
 idf_component_register(
                        INCLUDE_DIRS "." ${SRC_DIRS}
                        SRC_DIRS "." "core" ${INCLUDE_DIRS}
-                       REQUIRES arduino
+                       REQUIRES arduino cw-logic
                        )
 
 project(cw-gfx-commons)

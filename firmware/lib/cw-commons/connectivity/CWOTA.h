@@ -27,6 +27,7 @@
 
 #include <Arduino.h>
 #include <core/CWPreferences.h>
+#include <core/CWLogic.h>
 #include <display/StatusController.h>
 #include "esp_log.h"
 
@@ -38,6 +39,13 @@ extern "C" {
 #include "esp_crt_bundle.h"
 #ifdef __cplusplus
 }
+#endif
+
+// PlatformIO Arduino-ESP32 renames esp_crt_bundle_attach; raw ESP-IDF keeps the original.
+#ifdef PLATFORMIO
+  #define CW_CRT_BUNDLE_ATTACH arduino_esp_crt_bundle_attach
+#else
+  #define CW_CRT_BUNDLE_ATTACH esp_crt_bundle_attach
 #endif
 
 #define OTA_GITHUB_API_HOST  "api.github.com"
@@ -89,15 +97,12 @@ public:
         }
 
         // Compare versions (strip leading 'v')
-        String remote = info.version;
-        if (remote.startsWith("v")) remote = remote.substring(1);
-        String current = String(CW_FW_VERSION);
-        if (current.startsWith("v")) current = current.substring(1);
-
-        info.available   = (remote != current);
+        info.available   = cw::otaUpdateAvailable(CW_FW_VERSION, info.version.c_str());
         info.download_url = asset_url;
         info.body        = _extractJsonString(response, "body");
 
+        String current = String(cw::normalizeVersion(CW_FW_VERSION).c_str());
+        String remote = String(cw::normalizeVersion(info.version.c_str()).c_str());
         ESP_LOGI("OTA", "Current: %s, Latest: %s, Update available: %s",
                       current.c_str(), remote.c_str(), info.available ? "yes" : "no");
         return info;
@@ -115,7 +120,7 @@ public:
         char url_buf[512];
         url.toCharArray(url_buf, sizeof(url_buf));
         http_cfg.url                 = url_buf;
-        http_cfg.crt_bundle_attach   = esp_crt_bundle_attach;
+        http_cfg.crt_bundle_attach   = CW_CRT_BUNDLE_ATTACH;
         http_cfg.keep_alive_enable   = true;
         http_cfg.buffer_size         = 4096;
         http_cfg.buffer_size_tx      = 1024;
@@ -182,7 +187,7 @@ private:
         char url[256];
         snprintf(url, sizeof(url), "https://%s%s", host, path);
         cfg.url                = url;
-        cfg.crt_bundle_attach  = esp_crt_bundle_attach;
+        cfg.crt_bundle_attach  = CW_CRT_BUNDLE_ATTACH;
 
         esp_http_client_handle_t client = esp_http_client_init(&cfg);
         // Set User-Agent (GitHub API requires it)

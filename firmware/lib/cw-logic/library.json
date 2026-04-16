@@ -1,0 +1,11 @@
+{
+  "name": "cw-logic",
+  "version": "1.0.0",
+  "description": "Hardware-free pure logic functions for Clockwise Paradise",
+  "frameworks": "*",
+  "platforms": "*",
+  "build": {
+    "flags": [],
+    "srcFilter": ["-<*>"]
+  }
+}

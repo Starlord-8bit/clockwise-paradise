@@ -78,7 +78,7 @@ inline void cw_sendHardwarePage(WiFiClient& client) {
   <div class="section">
     <div class="section-title">Actions</div>
     <div class="footer">
-      <button class="btn btn-danger" onclick="if(confirm('Reboot device?'))restart()">Reboot</button>
+      <button class="btn btn-danger" onclick="if(confirm('Save hardware settings and reboot device?'))saveAndReboot()">Save &amp; Reboot</button>
     </div>
   </div>
 
@@ -91,6 +91,22 @@ inline void cw_sendHardwarePage(WiFiClient& client) {
     $('displayRotation').value = h['displayrotation']||'0';
     $('E_pin').value = h['e_pin']||'';
     $('ldrPin').value = h['ldrpin']||'';
+  }
+
+  async function saveAndReboot(){
+    try{
+      await setKey('ledColorOrder', $('ledColorOrder').value);
+      await setKey('reversePhase', $('reversePhase').checked?1:0);
+      await setKey('driver', $('driver').value);
+      await setKey('i2cSpeed', $('i2cSpeed').value);
+      await setKey('displayRotation', $('displayRotation').value);
+      await setKey('E_pin', $('E_pin').value);
+      await setKey('ldrPin', $('ldrPin').value);
+      toast('Saving and rebooting...');
+      restart();
+    } catch(e){
+      toast('Save failed', false);
+    }
   }
 
   </script>

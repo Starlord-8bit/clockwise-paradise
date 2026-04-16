@@ -1,6 +1,7 @@
 #include "DisplayControl.h"
 
 #include <core/CWPreferences.h>
+#include <core/CWLogic.h>
 #include <esp_log.h>
 
 static constexpr uint8_t MIN_BRIGHT_DISPLAY_ON = 4;
@@ -17,14 +18,10 @@ static bool isValidDriver(uint32_t driver) {
 
 static bool isNightTime(AppState& state) {
   auto* prefs = ClockwiseParams::getInstance();
-  int nowMins = state.dateTime.getHour() * 60 + state.dateTime.getMinute();
-  int startMins = prefs->nightStartH * 60 + prefs->nightStartM;
-  int endMins = prefs->nightEndH * 60 + prefs->nightEndM;
-
-  if (startMins < endMins) {
-    return nowMins >= startMins && nowMins < endMins;
-  }
-  return nowMins >= startMins || nowMins < endMins;
+  return cw::isNightWindow(
+    state.dateTime.getHour(), state.dateTime.getMinute(),
+    prefs->nightStartH, prefs->nightStartM,
+    prefs->nightEndH, prefs->nightEndM);
 }
 
 void displaySetup(AppState& state, uint8_t ledColorOrder, bool reversePhase,
