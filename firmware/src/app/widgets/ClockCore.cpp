@@ -1,8 +1,8 @@
 #include "ClockCore.h"
 
-#include <CWClockfaceDriver.h>
+#include <widgets/clockface/CWClockfaceDriver.h>
 
-void configureWidgetManager(AppState& state, ClockwiseParams* prefs) {
+void configureWidgetManager(AppState& state, const ClockwiseParams* prefs) {
   CWDriverRegistry::get(prefs->clockFaceIndex);
   state.widgetManager.begin(state.display, &state.dateTime, &state.currentFace);
 

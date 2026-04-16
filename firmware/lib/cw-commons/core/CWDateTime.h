@@ -27,6 +27,6 @@ public:
   int getWeekday();
 
   bool isAM();
-  bool is24hFormat();
+  bool is24hFormat() const;
   void set24hFormat(bool use24);
 };

@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include "CWWebUI.h"
+#include "web/CWWebUI.h"
 
 inline void cw_sendHardwarePage(WiFiClient& client) {
   cw_sendPageStart(client, "hardware");
@@ -78,8 +78,7 @@ inline void cw_sendHardwarePage(WiFiClient& client) {
   <div class="section">
     <div class="section-title">Actions</div>
     <div class="footer">
-      <button class="btn btn-primary" onclick="saveHw()">Apply</button>
-      <button class="btn btn-danger" onclick="if(confirm('Reboot device?'))restart()">Reboot</button>
+      <button class="btn btn-danger" onclick="if(confirm('Save hardware settings and reboot device?'))saveAndReboot()">Save &amp; Reboot</button>
     </div>
   </div>
 
@@ -94,7 +93,7 @@ inline void cw_sendHardwarePage(WiFiClient& client) {
     $('ldrPin').value = h['ldrpin']||'';
   }
 
-  async function saveHw(){
+  async function saveAndReboot(){
     try{
       await setKey('ledColorOrder', $('ledColorOrder').value);
       await setKey('reversePhase', $('reversePhase').checked?1:0);
@@ -103,9 +102,13 @@ inline void cw_sendHardwarePage(WiFiClient& client) {
       await setKey('displayRotation', $('displayRotation').value);
       await setKey('E_pin', $('E_pin').value);
       await setKey('ldrPin', $('ldrPin').value);
-      toast('Applied ✓');
-    } catch(e){ toast('Save failed', false); }
+      toast('Saving and rebooting...');
+      restart();
+    } catch(e){
+      toast('Save failed', false);
+    }
   }
+
   </script>
   )HTML");
 

@@ -67,6 +67,7 @@ struct ClockwiseParams
     const char* const PREF_MQTT_USER       = "mqttUser";
     const char* const PREF_MQTT_PASS       = "mqttPass";
     const char* const PREF_MQTT_PREFIX     = "mqttPrefix";
+    const char* const PREF_MQTT_DEVICE_ID  = "mqttDevId";
 
     // LED colour order constants
     static const uint8_t LED_ORDER_RGB = 0;
@@ -79,16 +80,16 @@ struct ClockwiseParams
     static const uint8_t AUTO_CHANGE_RANDOM   = 2;
 
     // Legacy swap booleans (kept for NVS backwards-compat)
-    bool swapBlueGreen;
-    bool swapBlueRed;
+    bool swapBlueGreen = false;
+    bool swapBlueRed = false;
 
-    uint8_t  ledColorOrder;   // 0=RGB, 1=RBG, 2=GBR
-    bool     reversePhase;
-    bool     use24hFormat;
-    uint8_t  displayBright;
-    uint16_t autoBrightMin;
-    uint16_t autoBrightMax;
-    uint8_t  ldrPin;
+    uint8_t  ledColorOrder = LED_ORDER_RGB;   // 0=RGB, 1=RBG, 2=GBR
+    bool     reversePhase = false;
+    bool     use24hFormat = true;
+    uint8_t  displayBright = 32;
+    uint16_t autoBrightMin = 0;
+    uint16_t autoBrightMax = 0;
+    uint8_t  ldrPin = 35;
     String   timeZone;
     String   wifiSsid;
     String   wifiPwd;
@@ -96,44 +97,45 @@ struct ClockwiseParams
     String   canvasFile;
     String   canvasServer;
     String   manualPosix;
-    uint8_t  displayRotation;
-    uint8_t  driver;
-    uint32_t i2cSpeed;
-    uint8_t  E_pin;
-    uint8_t  autoChange;      // 0=off, 1=sequence, 2=random
+    uint8_t  displayRotation = 0;
+    uint8_t  driver = 0;
+    uint32_t i2cSpeed = 8000000;
+    uint8_t  E_pin = 18;
+    uint8_t  autoChange = AUTO_CHANGE_OFF;      // 0=off, 1=sequence, 2=random
     // Brightness
-    uint8_t  brightMethod;    // 0=auto-LDR, 1=time-based, 2=fixed
-    uint8_t  nightStartH;
-    uint8_t  nightStartM;
-    uint8_t  nightEndH;
-    uint8_t  nightEndM;
-    uint8_t  nightBright;     // brightness during time-based night window
+    uint8_t  brightMethod = 0;    // 0=auto-LDR, 1=time-based, 2=fixed
+    uint8_t  nightStartH = 22;
+    uint8_t  nightStartM = 0;
+    uint8_t  nightEndH = 7;
+    uint8_t  nightEndM = 0;
+    uint8_t  nightBright = 8;     // brightness during time-based night window
     // Night mode
-    uint8_t  nightMode;       // 0=nothing, 1=off, 2=big clock
-    uint8_t  nightLevel;      // 1-5 brightness for big clock
-    uint8_t  nightTrigger;    // 0=time window, 1=ldr threshold
-    uint16_t nightLdrThres;   // ADC threshold (0-4095)
-    uint8_t  nightAction;     // 0=display off, 1=min brightness
-    uint8_t  nightMinBr;      // min brightness when nightAction=1
-    uint16_t superColor;      // RGB565 digit color
+    uint8_t  nightMode = 0;       // 0=nothing, 1=off, 2=big clock
+    uint8_t  nightLevel = 1;      // 1-5 brightness for big clock
+    uint8_t  nightTrigger = 0;    // 0=time window, 1=ldr threshold
+    uint16_t nightLdrThres = 128;   // ADC threshold (0-4095)
+    uint8_t  nightAction = 0;     // 0=display off, 1=min brightness
+    uint8_t  nightMinBr = 8;      // min brightness when nightAction=1
+    uint16_t superColor = 16936;      // RGB565 digit color
     String   bigclockServer;
     String   bigclockFile;
     // Uptime
-    uint32_t totalDays;
-    uint8_t  clockFaceIndex; // 0-based persisted clockface selection
+    uint32_t totalDays = 0;
+    uint8_t  clockFaceIndex = 0; // 0-based persisted clockface selection
     String   activeWidget;
     // OTA
-    bool     otaEnabled;
+    bool     otaEnabled = true;
     String   otaOwner;
     String   otaRepo;
     String   otaAssetName;
     // MQTT
-    bool     mqttEnabled;
+    bool     mqttEnabled = false;
     String   mqttBroker;
-    uint16_t mqttPort;
+    uint16_t mqttPort = 1883;
     String   mqttUser;
     String   mqttPass;
     String   mqttPrefix;
+    String   mqttDeviceId;
 
     ClockwiseParams() {
         preferences.begin("clockwise", false);
@@ -195,6 +197,7 @@ struct ClockwiseParams
         preferences.putString(PREF_MQTT_USER, mqttUser);
         preferences.putString(PREF_MQTT_PASS, mqttPass);
         preferences.putString(PREF_MQTT_PREFIX, mqttPrefix);
+        preferences.putString(PREF_MQTT_DEVICE_ID, mqttDeviceId);
     }
 
     void saveClockfaceIndex()
@@ -279,5 +282,8 @@ struct ClockwiseParams
         mqttUser      = preferences.getString(PREF_MQTT_USER, "");
         mqttPass      = preferences.getString(PREF_MQTT_PASS, "");
         mqttPrefix    = preferences.getString(PREF_MQTT_PREFIX, "clockwise");
+        mqttDeviceId  = preferences.isKey(PREF_MQTT_DEVICE_ID)
+                        ? preferences.getString(PREF_MQTT_DEVICE_ID, "")
+                        : "";
     }
 };

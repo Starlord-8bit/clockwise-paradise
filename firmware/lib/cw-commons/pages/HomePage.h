@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include "CWWebUI.h"
+#include "web/CWWebUI.h"
 
 inline void cw_sendHomePage(WiFiClient& client) {
   cw_sendPageStart(client, "home");

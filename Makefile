@@ -11,6 +11,11 @@ TOOLS_VENV ?= .venv-tools
 PIO_BIN    ?= $(CURDIR)/$(TOOLS_VENV)/bin/pio
 VCMAKE_BIN ?= $(CURDIR)/$(TOOLS_VENV)/bin/cmake
 NATIVE_TEST_BUILD_DIR ?= $(CURDIR)/build/test-native-cmake
+CPPCHECK_BIN ?= cppcheck
+CPPCHECK_PATHS ?= main firmware/src firmware/lib/cw-commons
+CPPCHECK_INCLUDES ?= -I firmware/src -I firmware/lib/cw-commons -I main
+CPPCHECK_SUPPRESSIONS ?= .cppcheck/suppressions.txt
+CPPCHECK_COMMON_FLAGS ?= --std=c++17 --language=c++ --inconclusive --suppress=missingIncludeSystem --suppressions-list=$(CPPCHECK_SUPPRESSIONS) --inline-suppr --quiet -j 1
 
 CMAKE_BIN := $(shell command -v cmake 2>/dev/null)
 ifeq ($(strip $(CMAKE_BIN)),)
@@ -34,7 +39,7 @@ DIST_PART := $(DIST_DIR)/partition-table.bin
 # For flash-ota: explicit IP= on command line takes priority, falls back to DEVICE_IP from .env
 _FLASH_IP := $(or $(IP),$(DEVICE_IP))
 
-.PHONY: tools-setup tools-check pio-test test build check flash flash-ota test-hw clean help
+.PHONY: tools-setup tools-check cppcheck cppcheck-ci pio-test test build check flash flash-ota test-hw clean help
 
 ## Install pinned local developer tools in .venv-tools (platformio + cmake)
 tools-setup:
@@ -46,10 +51,26 @@ tools-setup:
 tools-check:
 	@echo "System cmake: $$(command -v cmake || echo missing)"
 	@echo "System pio:   $$(command -v pio || echo missing)"
+	@echo "System cppcheck: $$(command -v $(CPPCHECK_BIN) || echo missing)"
 	@echo "Venv cmake:   $(VCMAKE_BIN)"
 	@echo "Venv pio:     $(PIO_BIN)"
 	@$(CMAKE_BIN) --version >/dev/null 2>&1 && echo "CMake OK via $(CMAKE_BIN)" || echo "CMake missing; run 'make tools-setup'"
 	@$(PIO_BIN) --version >/dev/null 2>&1 && echo "PlatformIO OK via $(PIO_BIN)" || echo "PlatformIO venv missing; run 'make tools-setup'"
+	@$(CPPCHECK_BIN) --version >/dev/null 2>&1 && echo "Cppcheck OK via $(CPPCHECK_BIN)" || echo "Cppcheck missing; install it with your OS package manager"
+
+## Run full cppcheck scan for local development (informational, does not fail build)
+cppcheck:
+	@test -x "$$(command -v $(CPPCHECK_BIN))" || (echo "Cppcheck missing; install it first"; exit 1)
+	@mkdir -p build/audit
+	@$(CPPCHECK_BIN) --enable=warning,style,performance,portability $(CPPCHECK_COMMON_FLAGS) $(CPPCHECK_INCLUDES) $(CPPCHECK_PATHS) 2> build/audit/cppcheck.log || true
+	@echo "Cppcheck report written to build/audit/cppcheck.log"
+
+## Run cppcheck in CI gate mode (fails on warnings/portability findings)
+cppcheck-ci:
+	@test -x "$$(command -v $(CPPCHECK_BIN))" || (echo "Cppcheck missing; install it first"; exit 1)
+	@mkdir -p build/audit
+	@$(CPPCHECK_BIN) --enable=warning,portability --error-exitcode=1 $(CPPCHECK_COMMON_FLAGS) $(CPPCHECK_INCLUDES) $(CPPCHECK_PATHS) 2> build/audit/cppcheck.log
+	@echo "Cppcheck CI gate passed"
 
 ## Run PlatformIO native tests using pinned local venv toolchain
 pio-test:
@@ -83,8 +104,8 @@ build:
 	@echo "Firmware ready in $(DIST_DIR)/"
 	@ls -lh $(DIST_DIR)/
 
-## Run tests then build — mirrors the CI gate; run this before pushing a release
-check: test build
+## Run static analysis + tests + build — mirrors the CI gate; run this before pushing a release
+check: cppcheck-ci test build
 
 ## Flash over USB using auto-reset sequencing (requires: pip install esptool pyserial)
 ## Override port: make flash PORT=/dev/ttyACM0
@@ -132,6 +153,8 @@ help:
 	@echo "Targets:"
 	@echo "  tools-setup Install local dev tools into $(TOOLS_VENV)"
 	@echo "  tools-check Show system and venv tool availability"
+	@echo "  cppcheck    Run full Cppcheck scan (writes build/audit/cppcheck.log)"
+	@echo "  cppcheck-ci Run Cppcheck gate (warning+portability; fails on findings)"
 	@echo "  pio-test    Validate PlatformIO install, then run native tests via make test"
 	@echo "  test        Run native unit tests (no Docker)"
 	@echo "  build       Build firmware (IDF_VERSION=$(IDF_VERSION)) -> $(DIST_DIR)/"

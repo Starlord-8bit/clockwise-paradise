@@ -1,4 +1,4 @@
-#include "CWDateTime.h"
+#include "core/CWDateTime.h"
 #include "esp_log.h"
 
 void CWDateTime::begin(const char *timeZone, bool use24format, const char *ntpServer = NTP_SERVER, const char *posixTZ = "")
@@ -33,14 +33,18 @@ String CWDateTime::getFormattedTime(const char *format)
 char *CWDateTime::getHour(const char *format)
 {
   static char buffer[3] = {'\0'};
-  strncpy(buffer, myTZ.dateTime((use24hFormat ? "H" : "h")).c_str(), sizeof(buffer));
+  String hour = myTZ.dateTime((use24hFormat ? "H" : "h"));
+  strncpy(buffer, hour.c_str(), sizeof(buffer) - 1);
+  buffer[sizeof(buffer) - 1] = '\0';
   return buffer;
 }
 
 char *CWDateTime::getMinute(const char *format)
 {
   static char buffer[3] = {'\0'};
-  strncpy(buffer, myTZ.dateTime("i").c_str(), sizeof(buffer));
+  String minute = myTZ.dateTime("i");
+  strncpy(buffer, minute.c_str(), sizeof(buffer) - 1);
+  buffer[sizeof(buffer) - 1] = '\0';
   return buffer;
 }
 
@@ -82,7 +86,7 @@ bool CWDateTime::isAM()
   return myTZ.isAM();
 }
 
-bool CWDateTime::is24hFormat()
+bool CWDateTime::is24hFormat() const
 {
   return this->use24hFormat;
 }

@@ -4,7 +4,7 @@
 #include <Adafruit_GFX.h>
 #include <functional>
 
-#include "CWClockfaceDriver.h"
+#include "widgets/clockface/CWClockfaceDriver.h"
 
 class CWWidgetManager {
 public:
@@ -113,7 +113,7 @@ private:
             return false;
         }
 
-        if (_currentClockface && *_currentClockface && (*_currentClockface)->teardown) {
+        if (*_currentClockface && (*_currentClockface)->teardown) {
             (*_currentClockface)->teardown();
         }
 

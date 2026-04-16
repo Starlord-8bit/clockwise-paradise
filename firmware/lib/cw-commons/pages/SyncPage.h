@@ -2,7 +2,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include "CWWebUI.h"
+#include "web/CWWebUI.h"
 
 inline void cw_sendSyncPage(WiFiClient& client) {
   cw_sendPageStart(client, "sync");
@@ -69,6 +69,7 @@ inline void cw_sendSyncPage(WiFiClient& client) {
     <div class="row"><label>Username</label><div class="ctrl"><input type="text" id="mqttUser" placeholder="(optional)"></div></div>
     <div class="row"><label>Password</label><div class="ctrl"><input type="password" id="mqttPass" placeholder="(optional)"></div></div>
     <div class="row"><label>Topic prefix</label><div class="ctrl"><input type="text" id="mqttPrefix" placeholder="clockwise"></div></div>
+    <div class="row"><label>Device ID</label><div class="ctrl"><input type="text" id="mqttDevId" placeholder="(optional, default: MAC suffix)"><div class="hint">Used in MQTT topic node and Home Assistant unique id.</div></div></div>
     <div class="row">
       <label>HA Discovery</label>
       <div class="ctrl">
@@ -98,6 +99,7 @@ inline void cw_sendSyncPage(WiFiClient& client) {
     $('mqttPort').value    = h['mqttport']||'1883';
     $('mqttUser').value    = h['mqttuser']||'';
     $('mqttPrefix').value  = h['mqttprefix']||'clockwise';
+    $('mqttDevId').value   = h['mqttdevid']||'';
     // mqttPass not returned by server
   }
 
@@ -112,6 +114,7 @@ inline void cw_sendSyncPage(WiFiClient& client) {
       await setKey('mqttUser',    $('mqttUser').value);
       if($('mqttPass').value) await setKey('mqttPass', $('mqttPass').value);
       await setKey('mqttPrefix',  $('mqttPrefix').value);
+      await setKey('mqttDevId',   $('mqttDevId').value);
       toast('Applied ✓');
     } catch(e){ toast('Failed: '+e, false); }
   }
