@@ -17,3 +17,14 @@ dependencies.lock
 
 # Local pinned developer toolchain (cmake/platformio)
 .venv-tools/
+
+# Agentic platform setup (local/custom agent assets)
+.claude/agents/
+.claude/skills/
+.claude/prompts/
+.agents/
+.github/instructions/
+.github/prompts/
+
+# Local agent metadata
+.claude/settings.local.json

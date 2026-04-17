@@ -10,7 +10,7 @@ Fill in before dispatching to the coder + frontend agents:
 
 ```
 Setting name (human-readable): _______________
-NVS key (≤ 15 chars, snake_case): _______________
+NVS key (≤ 15 chars, snake_case): _______________   ← count manually; silent truncation at 15 (RT-4)
 Data type: [ ] int  [ ] bool  [ ] String  [ ] float
 Default value: _______________
 Valid range / allowed values: _______________

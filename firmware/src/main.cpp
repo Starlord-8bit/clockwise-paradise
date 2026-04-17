@@ -72,6 +72,7 @@ void setup()
                p->displayRotation, p->driver, p->i2cSpeed, p->E_pin);
 
   Locator::provide(appState.display);
+  displayBootSanityTest(appState, p->displayBright);
 
   configureWidgetManager(appState, p);
   bindWebUiCallbacks(appState);

@@ -67,17 +67,17 @@ explaining the sizing rationale.
 
 The main FreeRTOS task runs `loop()`. **No blocking calls allowed here.**
 
-Blocking = any call that may take >1ms without yielding:
-- `delay()` → use `vTaskDelay(pdMS_TO_TICKS(N))` in tasks, or restructure with state machine
-- Synchronous HTTP requests → always async or on a separate task
-- NVS read inside loop → cache the value at startup, read from cache in loop
-- `Serial.available()` polling → use an event or UART interrupt
+A call is blocking if it may take > 100 ms without returning (RT-1). Examples:
+- `delay(> 5)` — forbidden in `loop()`. `delay(1)` at end of loop is fine (yields to IDLE).
+- Synchronous HTTP requests without a timeout — must set `http.setTimeout(5000)` or equivalent
+- `while (!x)` polling loops — restructure as a state machine with timestamp gating
+- NVS read inside a handler — cache at startup, read from the cached struct in loop
 
 ---
 
 ## Settings Pattern (NVS)
 
-Every new device setting requires **all four** of these:
+Every new device setting requires **all four** of these (see also [CONSTRAINTS.md RT-4](../../CONSTRAINTS.md) for the NVS key length rule):
 
 ```cpp
 // 1. Struct field in CWPreferences.h
@@ -86,7 +86,7 @@ struct Preferences {
 };
 
 // 2. Load in loadPreferences()
-prefs.myNewSetting = nvs.getInt("my_new_key", 42);  // key ≤ 15 chars
+prefs.myNewSetting = nvs.getInt("my_new_key", 42);  // key ≤ 15 chars — count manually
 
 // 3. Save in savePreferences()
 nvs.putInt("my_new_key", prefs.myNewSetting);
@@ -95,6 +95,8 @@ nvs.putInt("my_new_key", prefs.myNewSetting);
 // GET  /api/myNewSetting  → returns current value
 // POST /api/myNewSetting  → accepts new value, saves, returns {"status":"ok"}
 ```
+
+For a complete end-to-end template use [.claude/prompts/add-setting.md](../prompts/add-setting.md).
 
 ---
 

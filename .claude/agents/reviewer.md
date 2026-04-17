@@ -32,15 +32,15 @@ If the `type:` field is missing or not one of the above two values: return NOK i
 Pass the **complete, unmodified** Handoff Contract to the specialist reviewer.
 Do not summarize, trim, or reinterpret it. The specialist needs the original text.
 
-Also pass the **original task description** from the coordinator so the specialist can
+Also pass the **full Task Contract** from the pm so the specialist can
 run the cross-check against spec (F4 / W5).
 
 ---
 
 ## Step 3 — Return the Verdict
 
-Return the specialist's verdict verbatim to the coordinator. Do not modify it.
+Return the specialist's verdict verbatim to the pm. Do not modify it.
 
-If the specialist returns OK: the coordinator may proceed to the GitHub Specialist.
-If the specialist returns NOK: the coordinator routes back to the coder or frontend agent.
-If the specialist returns an Escalation Report: the coordinator must stop and report to the user.
+If the specialist returns OK: the pm may proceed to the GitHub Specialist.
+If the specialist returns NOK: the pm routes back to the coder or frontend agent.
+If the specialist returns an Escalation Report: the pm must stop and report to the user.
