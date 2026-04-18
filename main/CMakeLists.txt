@@ -11,7 +11,7 @@ idf_component_register(
 				"../firmware/src/app/widgets/ClockCore.cpp"
 				"../firmware/src/app/widgets/ClockCoreChecks.cpp"
 				"../firmware/src/CWClockfaceRegistry.cpp"
-			INCLUDE_DIRS ${PROJECT_DIR}/firmware/src
+			INCLUDE_DIRS ${PROJECT_DIR}/firmware/src ${PROJECT_DIR}/firmware/lib/cw-logic/core
 			PRIV_REQUIRES ESP32-HUB75-MatrixPanel-I2S-DMA cw-commons cw-gfx-engine WiFiManager Improv-WiFi-Library arduino Adafruit-GFX-Library esp_https_ota mqtt app_update ${CLOCKFACES}
                        )
 

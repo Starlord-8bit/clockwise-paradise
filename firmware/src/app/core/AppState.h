@@ -16,6 +16,7 @@ struct AppState {
   CWDateTime dateTime;
 
   unsigned long autoBrightMillis = 0;
+  int currentBrightness = -1;
   int currentBrightSlot = -1;
 
   int lastAutoChangeDay = -1;

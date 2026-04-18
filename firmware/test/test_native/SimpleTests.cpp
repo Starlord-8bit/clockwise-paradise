@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "CWLogic.h"
+#include "NightModeLogic.h"
 
 void setUp(void) {}
 void tearDown(void) {}
@@ -58,36 +59,96 @@ void test_ota_rollback_blocked_aborted(void) {
 }
 
 // ---------------------------------------------------------------------------
-// Night window predicate — mirrors main.cpp::isNightTime() behavior
+// Night window predicate — mirrors DisplayControl night-window logic
 // ---------------------------------------------------------------------------
-static bool is_night_window(int now_h, int now_m, int start_h, int start_m, int end_h, int end_m) {
-    const int now = now_h * 60 + now_m;
-    const int start = start_h * 60 + start_m;
-    const int end = end_h * 60 + end_m;
-    if (start < end) {
-        return now >= start && now < end;
-    }
-    return now >= start || now < end;
-}
-
 void test_night_window_same_day_inside(void) {
-    TEST_ASSERT_TRUE(is_night_window(23, 0, 22, 0, 23, 59));
+    TEST_ASSERT_TRUE(cw::logic::isNightWindow(23, 0, 22, 0, 23, 59));
 }
 
 void test_night_window_same_day_outside(void) {
-    TEST_ASSERT_FALSE(is_night_window(21, 30, 22, 0, 23, 59));
+    TEST_ASSERT_FALSE(cw::logic::isNightWindow(21, 30, 22, 0, 23, 59));
 }
 
 void test_night_window_wrap_inside_evening(void) {
-    TEST_ASSERT_TRUE(is_night_window(23, 30, 22, 0, 7, 0));
+    TEST_ASSERT_TRUE(cw::logic::isNightWindow(23, 30, 22, 0, 7, 0));
 }
 
 void test_night_window_wrap_inside_morning(void) {
-    TEST_ASSERT_TRUE(is_night_window(6, 30, 22, 0, 7, 0));
+    TEST_ASSERT_TRUE(cw::logic::isNightWindow(6, 30, 22, 0, 7, 0));
 }
 
 void test_night_window_wrap_outside(void) {
-    TEST_ASSERT_FALSE(is_night_window(12, 0, 22, 0, 7, 0));
+    TEST_ASSERT_FALSE(cw::logic::isNightWindow(12, 0, 22, 0, 7, 0));
+}
+
+void test_night_mode_transition_enter(void) {
+    TEST_ASSERT_EQUAL(
+        static_cast<int>(cw::logic::NightModeTransition::kEnterNight),
+        static_cast<int>(cw::logic::resolveNightModeTransition(false, true))
+    );
+}
+
+void test_night_mode_transition_hold(void) {
+    TEST_ASSERT_EQUAL(
+        static_cast<int>(cw::logic::NightModeTransition::kStayNight),
+        static_cast<int>(cw::logic::resolveNightModeTransition(true, true))
+    );
+}
+
+void test_night_mode_transition_exit(void) {
+    TEST_ASSERT_EQUAL(
+        static_cast<int>(cw::logic::NightModeTransition::kExitNight),
+        static_cast<int>(cw::logic::resolveNightModeTransition(true, false))
+    );
+}
+
+void test_normal_brightness_target_fixed_mode(void) {
+    cw::logic::BrightnessTarget target = cw::logic::resolveNormalBrightnessTarget(
+        cw::logic::kBrightnessMethodFixed, true, false, 32, 8, 0, 0, 0);
+    TEST_ASSERT_TRUE(target.hasValue);
+    TEST_ASSERT_EQUAL_UINT8(32, target.brightness);
+    TEST_ASSERT_EQUAL(32, target.slot);
+}
+
+void test_normal_brightness_target_time_mode_uses_scheduled_night_value(void) {
+    cw::logic::BrightnessTarget target = cw::logic::resolveNormalBrightnessTarget(
+        cw::logic::kBrightnessMethodTime, true, true, 32, 8, 0, 0, 0);
+    TEST_ASSERT_TRUE(target.hasValue);
+    TEST_ASSERT_EQUAL_UINT8(8, target.brightness);
+    TEST_ASSERT_EQUAL(8, target.slot);
+}
+
+void test_normal_brightness_target_time_mode_requires_wifi(void) {
+    cw::logic::BrightnessTarget target = cw::logic::resolveNormalBrightnessTarget(
+        cw::logic::kBrightnessMethodTime, false, false, 32, 8, 0, 0, 0);
+    TEST_ASSERT_FALSE(target.hasValue);
+    TEST_ASSERT_EQUAL(-1, target.slot);
+}
+
+void test_normal_brightness_target_ldr_mode_maps_brightness(void) {
+    cw::logic::BrightnessTarget target = cw::logic::resolveNormalBrightnessTarget(
+        cw::logic::kBrightnessMethodLdr, true, false, 32, 8, 300, 100, 500);
+    TEST_ASSERT_TRUE(target.hasValue);
+    TEST_ASSERT_EQUAL(5, target.slot);
+    TEST_ASSERT_EQUAL_UINT8(16, target.brightness);
+}
+
+void test_automatic_brightness_skips_small_ldr_slot_change(void) {
+    const cw::logic::BrightnessTarget target = {true, 12, 5};
+    TEST_ASSERT_FALSE(cw::logic::shouldApplyAutomaticBrightness(
+        cw::logic::kBrightnessMethodLdr, 4, target));
+}
+
+void test_automatic_brightness_applies_large_ldr_slot_change(void) {
+    const cw::logic::BrightnessTarget target = {true, 12, 6};
+    TEST_ASSERT_TRUE(cw::logic::shouldApplyAutomaticBrightness(
+        cw::logic::kBrightnessMethodLdr, 3, target));
+}
+
+void test_automatic_brightness_applies_time_mode_change(void) {
+    const cw::logic::BrightnessTarget target = {true, 8, 8};
+    TEST_ASSERT_TRUE(cw::logic::shouldApplyAutomaticBrightness(
+        cw::logic::kBrightnessMethodTime, 32, target));
 }
 
 // ---------------------------------------------------------------------------
@@ -355,6 +416,16 @@ int runUnityTests(void) {
     RUN_TEST(test_night_window_wrap_inside_evening);
     RUN_TEST(test_night_window_wrap_inside_morning);
     RUN_TEST(test_night_window_wrap_outside);
+    RUN_TEST(test_night_mode_transition_enter);
+    RUN_TEST(test_night_mode_transition_hold);
+    RUN_TEST(test_night_mode_transition_exit);
+    RUN_TEST(test_normal_brightness_target_fixed_mode);
+    RUN_TEST(test_normal_brightness_target_time_mode_uses_scheduled_night_value);
+    RUN_TEST(test_normal_brightness_target_time_mode_requires_wifi);
+    RUN_TEST(test_normal_brightness_target_ldr_mode_maps_brightness);
+    RUN_TEST(test_automatic_brightness_skips_small_ldr_slot_change);
+    RUN_TEST(test_automatic_brightness_applies_large_ldr_slot_change);
+    RUN_TEST(test_automatic_brightness_applies_time_mode_change);
     RUN_TEST(test_url_decode_timezone);
     RUN_TEST(test_url_decode_symbols);
     RUN_TEST(test_version_normalization_equivalent);
