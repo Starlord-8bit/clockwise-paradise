@@ -15,20 +15,20 @@ Last reviewed: 2026-04-18
 | A3 | Done | coder | Added `REVIEWER_ENFORCEMENT.md` and aligned PM/coder/reviewer docs on docs-only routing, contract validity, and named-rule enforcement. |
 | A4 | Done | coder | Added `MIXED_SURFACE_OWNERSHIP.md` and aligned PM, task-contract, and add-setting guidance on mixed UI plus firmware/connectivity ownership and sequencing. |
 | C1 | Done | pm | Implemented on PR #32. |
-| C2 | Proposed | pm | Depends on C1 and A4. |
+| C2 | Deferred | pm | De-scoped from active implementation for current product direction; auth branch did not land. |
 | C3 | Proposed | coder | Persistence follow-up after planning alignment. |
 | C4 | Proposed | display-render | Night-mode state bug remains open. |
 | C5 | Proposed | connectivity | Hardware MQTT coverage not yet added. |
 | C6 | Proposed | coder | Header/dead-config cleanup still pending. |
-| C7 | Proposed | coder | Prefer after C1 and C2. |
+| C7 | Proposed | coder | Prefer after C1; update if auth work is revisited later. |
 
 ## Recommended execution order
 
 1. Close platform workflow gaps first: establish one current audit backlog, document required CI and branch gates, and clarify cross-agent ownership for mixed web/UI plus firmware tasks.
-2. Address the two LAN-surface hardening items next: stop sending credentials in query strings, then add optional auth for mutating web endpoints.
-3. Reduce persistence risk after security work: implement debounced or targeted NVS writes for bursty settings updates.
-4. Tackle correctness and boundary cleanup: night-mode state mutation, MQTT hardware coverage, and header/dead-config cleanup.
-5. Finish with documentation that lowers future drift: HTTP API reference and explicit credential-storage limitations.
+2. Reduce persistence risk next: implement debounced or targeted NVS writes for bursty settings updates.
+3. Tackle correctness and boundary cleanup: night-mode state mutation, MQTT hardware coverage, and header/dead-config cleanup.
+4. Finish with documentation that lowers future drift: HTTP API reference and explicit credential-storage limitations.
+5. Revisit optional HTTP auth only if product direction changes and the added setup/maintenance cost becomes justified.
 
 ## 1. Agentic self-assessment / platform alignment
 
@@ -84,13 +84,12 @@ Last reviewed: 2026-04-18
 - Completion note: Implemented on PR #32. Sensitive credential updates now use POST body handling in the active UI/backend flow, with native tests added for request parsing and e2e coverage for the active `mqttPass` path.
 
 ### C2. Add optional authentication for mutating HTTP endpoints
-- Status: Proposed
+- Status: Deferred
 - Priority: P1
 - Owner: pm
-- Scope summary: Add opt-in protection for OTA, restart, settings mutation, and other state-changing HTTP routes without breaking the current default setup flow.
-- Why it matters: The device is LAN-exposed and currently trusts every client on the network. Optional auth raises the floor without forcing a complex first-boot experience.
-- Suggested first step: Define the minimum protected endpoint set and the configuration model before choosing the implementation details.
-- Dependencies / sequencing: Do after C1 and after A4. Coordinate `frontend` and `coder` work from one task contract.
+- Scope summary: Optional auth for OTA, restart, settings mutation, and other state-changing HTTP routes remains a known hardening option, but it is not an active implementation target.
+- Why it matters: Current product direction treats the device primarily as a trusted-LAN local display widget, and the added setup and maintenance complexity of optional HTTP auth outweighs its benefit for that use case.
+- Defer note: The auth branch did not land. Keep this item off the active path unless the product direction changes or the deployment model expands beyond the current trusted-LAN assumption.
 
 ### C3. Debounce or target NVS writes for bursty settings changes
 - Status: Proposed
