@@ -43,7 +43,7 @@ extern "C" {
 class CWMqtt {
 public:
     // Runtime callbacks — set by main.cpp for live control without reboot
-    std::function<void(uint8_t)> onClockfaceSwitch = nullptr;
+    std::function<bool(uint8_t)> onClockfaceSwitch = nullptr;
     std::function<bool(const String&)> onWidgetSwitch = nullptr;
     std::function<void(uint8_t)> onBrightnessChange = nullptr;
 
@@ -123,8 +123,6 @@ private:
     // ── HA MQTT Discovery ────────────────────────────────────────────────────
 
     void publishDiscovery() {
-        auto* p = ClockwiseParams::getInstance();
-
         // Device info block (shared across all entities)
         // We build it once as a JSON fragment
         String dev_str = "{\"identifiers\":[\"" + _device_id + "\"]"
@@ -250,7 +248,13 @@ private:
         } else if (prop == "clockface") {
             uint8_t idx = (uint8_t)payload.toInt();
             if (onClockfaceSwitch) {
-                onClockfaceSwitch(idx);
+                if (onClockfaceSwitch(idx)) {
+                    p->clockFaceIndex = idx;
+                    p->activeWidget = "clock";
+                    p->saveSetMutation("clockFaceIndex");
+                } else {
+                    ESP_LOGW("MQTT", "Clockface %u was rejected", idx);
+                }
             } else {
                 ESP_LOGW("MQTT", "clockface switch requested but callback not wired");
             }

@@ -18,9 +18,10 @@ struct ClockwiseWebServer
   uint8_t pending_clockface_index = 255; // 255 = no pending switch
 
   // Callback set by main.cpp for live clockface switching without reboot.
-  // Signature: void switchClockface(uint8_t index)
+  // Signature: bool switchClockface(uint8_t index)
+  // Returns true when the live switch succeeded; the caller persists the change.
   // If null, falls back to save+reboot.
-  std::function<void(uint8_t)> onClockfaceSwitch = nullptr;
+  std::function<bool(uint8_t)> onClockfaceSwitch = nullptr;
   // Generic widget switch callback. Returns true if the widget was activated.
   std::function<bool(const String&)> onWidgetSwitch = nullptr;
   // Returns widget runtime state JSON.

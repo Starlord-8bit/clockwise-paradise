@@ -151,6 +151,48 @@ void test_sensitive_setting_detection(void) {
     TEST_ASSERT_FALSE(cw::logic::isSensitiveSetKey("wifiSsid"));
 }
 
+void test_set_persistence_key_classifies_single_value_setting(void) {
+    TEST_ASSERT_EQUAL_INT(
+        static_cast<int>(cw::logic::SetPersistenceKey::kDisplayBright),
+        static_cast<int>(cw::logic::resolveSetPersistenceKey("displayBright")));
+}
+
+void test_set_persistence_key_classifies_compound_setting(void) {
+    TEST_ASSERT_EQUAL_INT(
+        static_cast<int>(cw::logic::SetPersistenceKey::kAutoBright),
+        static_cast<int>(cw::logic::resolveSetPersistenceKey("autoBright")));
+}
+
+void test_set_persistence_key_classifies_callback_driven_setting(void) {
+    TEST_ASSERT_EQUAL_INT(
+        static_cast<int>(cw::logic::SetPersistenceKey::kClockFaceIndex),
+        static_cast<int>(cw::logic::resolveSetPersistenceKey("clockFaceIndex")));
+}
+
+void test_set_persistence_key_rejects_unknown_setting(void) {
+    TEST_ASSERT_EQUAL_INT(
+        static_cast<int>(cw::logic::SetPersistenceKey::kUnknown),
+        static_cast<int>(cw::logic::resolveSetPersistenceKey("notARealSetting")));
+}
+
+void test_clockface_set_decision_accepts_successful_runtime_switch(void) {
+    TEST_ASSERT_EQUAL_INT(
+        static_cast<int>(cw::logic::ClockfaceSetApplyDecision::kPersistMutation),
+        static_cast<int>(cw::logic::resolveClockfaceSetApplyDecision(true, true)));
+}
+
+void test_clockface_set_decision_rejects_failed_runtime_switch(void) {
+    TEST_ASSERT_EQUAL_INT(
+        static_cast<int>(cw::logic::ClockfaceSetApplyDecision::kReject),
+        static_cast<int>(cw::logic::resolveClockfaceSetApplyDecision(true, false)));
+}
+
+void test_clockface_set_decision_persists_without_runtime_callback(void) {
+    TEST_ASSERT_EQUAL_INT(
+        static_cast<int>(cw::logic::ClockfaceSetApplyDecision::kPersistMutation),
+        static_cast<int>(cw::logic::resolveClockfaceSetApplyDecision(false, false)));
+}
+
 void test_sensitive_body_overrides_query_value(void) {
     cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("wifiPwd", "legacy", "new%20secret", true);
     TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kResolvedFromBody, resolved.status);
@@ -318,6 +360,13 @@ int runUnityTests(void) {
     RUN_TEST(test_version_normalization_equivalent);
     RUN_TEST(test_version_normalization_update_available);
     RUN_TEST(test_sensitive_setting_detection);
+    RUN_TEST(test_set_persistence_key_classifies_single_value_setting);
+    RUN_TEST(test_set_persistence_key_classifies_compound_setting);
+    RUN_TEST(test_set_persistence_key_classifies_callback_driven_setting);
+    RUN_TEST(test_set_persistence_key_rejects_unknown_setting);
+    RUN_TEST(test_clockface_set_decision_accepts_successful_runtime_switch);
+    RUN_TEST(test_clockface_set_decision_rejects_failed_runtime_switch);
+    RUN_TEST(test_clockface_set_decision_persists_without_runtime_callback);
     RUN_TEST(test_sensitive_body_overrides_query_value);
     RUN_TEST(test_sensitive_body_supports_form_value_with_query_key);
     RUN_TEST(test_sensitive_body_supports_key_value_form);

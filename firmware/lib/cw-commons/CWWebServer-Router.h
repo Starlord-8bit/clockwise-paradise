@@ -34,7 +34,7 @@ struct CWWebServerRouter {
     bool& force_restart,
     std::function<void(uint8_t)> onBrightnessChange,
     std::function<void(bool)> on24hFormatChange,
-    std::function<void(uint8_t)> onClockfaceSwitch,
+    std::function<bool(uint8_t)> onClockfaceSwitch,
     std::function<bool(const String&)> onWidgetSwitch,
     std::function<String()> onWidgetStateJson
   ) {
@@ -123,8 +123,18 @@ struct CWWebServerRouter {
       ClockwiseParams::getInstance()->load();
       String decodedValue = value;
       CWWebServerSettings::urlDecode(decodedValue);
-      CWWebServerSettings::handleSet(key, decodedValue, onBrightnessChange, on24hFormatChange, onClockfaceSwitch, onWidgetSwitch, force_restart);
-      ClockwiseParams::getInstance()->save();
+      CWWebServerSettings::SetApplyResult result = CWWebServerSettings::handleSet(
+        key,
+        decodedValue,
+        onBrightnessChange,
+        on24hFormatChange,
+        onClockfaceSwitch,
+        onWidgetSwitch,
+        force_restart
+      );
+      if (result == CWWebServerSettings::SetApplyResult::kPersistMutation) {
+        ClockwiseParams::getInstance()->saveSetMutation(key);
+      }
       client.println("HTTP/1.0 204 No Content");
     }
   }

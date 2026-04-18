@@ -5,10 +5,7 @@
 
 void bindWebUiCallbacks(AppState& state) {
   ClockwiseWebServer::getInstance()->onClockfaceSwitch = [&state](uint8_t idx) {
-    if (state.widgetManager.activateClockWidget(idx)) {
-      ClockwiseParams::getInstance()->clockFaceIndex = idx;
-      ClockwiseParams::getInstance()->saveClockfaceIndex();
-    }
+    return state.widgetManager.activateClockWidget(idx);
   };
 
   ClockwiseWebServer::getInstance()->onWidgetSwitch = [&state](const String& widgetName) {
