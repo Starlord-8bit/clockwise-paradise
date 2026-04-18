@@ -69,6 +69,35 @@ To enable it:
 
 After saving, Home Assistant should auto-create entities for supported controls and sensors.
 
+### Hardware smoke coverage for MQTT
+
+The repo now includes an optional broker-backed hardware smoke path in `scripts/test_hw.py`.
+
+It covers the smallest practical end-to-end MQTT proof:
+
+- Configure MQTT settings on the device via HTTP
+- Restart the device and wait for it to come back online
+- Observe availability publication and verify it is retained on a real broker
+- Observe HA discovery payload publication for the fresh test topic base and verify it is retained
+- Observe state publication on the real broker
+- Publish one safe command (`brightness`) and verify the state round-trip, then restore the prior brightness
+
+Example:
+
+```bash
+python3 -m pip install paho-mqtt
+
+python3 scripts/test_hw.py \
+  --skip-flash \
+  --ip 192.168.1.50 \
+  --mqtt-smoke \
+  --mqtt-host 192.168.1.10
+```
+
+To avoid retained/stale-topic false positives, the script generates a unique topic prefix per run unless you override it with `--mqtt-prefix`.
+
+The runner temporarily mutates the device MQTT config and does not restore the prior broker settings afterward, so use a dedicated test device or reapply your normal MQTT config when the smoke pass finishes.
+
 ---
 
 ## 🖼️ Canvas Clockfaces
@@ -185,6 +214,8 @@ Then run tests with either path:
 make test      # CMake native tests (authoritative path)
 make pio-test  # verifies local PlatformIO install, then runs make test
 ```
+
+For hardware coverage, `scripts/test_hw.py` is the live-device runner. If you enable `--mqtt-smoke`, install `paho-mqtt` first and provide a broker the device can reach.
 
 ### Quick start
 ```bash

@@ -29,11 +29,16 @@ import argparse
 import importlib.util
 import json
 import os
+import queue
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 import urllib.error
+import urllib.parse
+import uuid
+from dataclasses import dataclass
 from pathlib import Path
 
 
@@ -44,6 +49,7 @@ from pathlib import Path
 SERIAL_BAUD     = 115200
 BOOT_TIMEOUT_S  = 90
 POLL_INTERVAL_S = 4
+MQTT_TIMEOUT_S  = 45
 
 # The serial string that confirms new firmware has completed setup() and
 # called esp_ota_mark_app_valid_cancel_rollback() — see main.cpp.
@@ -137,6 +143,190 @@ def http_post_binary(url: str, data: bytes, timeout: int = 120):
         return e.code, None
     except Exception as e:
         raise ConnectionError(str(e)) from e
+
+
+def http_post(url: str, data: bytes | None = None,
+              content_type: str | None = None, timeout: int = 10):
+    """POST request helper. Returns (status, headers_dict_lowercase, body_dict_or_None)."""
+    req = urllib.request.Request(url, data=data if data is not None else b"", method="POST")
+    if content_type:
+        req.add_header("Content-Type", content_type)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read()
+            headers = {k.lower(): v for k, v in resp.headers.items()}
+            try:
+                body = json.loads(raw) if raw else None
+            except (json.JSONDecodeError, ValueError):
+                body = None
+            return resp.status, headers, body
+    except urllib.error.HTTPError as e:
+        headers = {k.lower(): v for k, v in e.headers.items()}
+        return e.code, headers, None
+    except Exception as e:
+        raise ConnectionError(str(e)) from e
+
+
+def http_set_key(ip: str, key: str, value: str | int, sensitive: bool = False) -> None:
+    """Apply a single setting using the same /set contract as the Web UI."""
+    if sensitive:
+        key_q = urllib.parse.quote(key, safe="")
+        body = urllib.parse.urlencode({"value": str(value)}).encode("utf-8")
+        status, _, _ = http_post(
+            f"http://{ip}/set?{key_q}=",
+            data=body,
+            content_type="application/x-www-form-urlencoded;charset=UTF-8",
+        )
+    else:
+        encoded = urllib.parse.quote(str(value), safe="")
+        status, _, _ = http_post(f"http://{ip}/set?{key}={encoded}")
+    if status != 204:
+        raise ConnectionError(f"/set rejected for {key!r}: HTTP {status}")
+
+
+def http_restart(ip: str) -> None:
+    status, _, _ = http_post(f"http://{ip}/restart")
+    if status != 204:
+        raise ConnectionError(f"/restart rejected: HTTP {status}")
+
+
+def choose_brightness_probe(current: int) -> int:
+    if current < 255:
+        return current + 1
+    if current > 0:
+        return current - 1
+    return 1
+
+
+@dataclass(frozen=True)
+class MqttMessage:
+    topic: str
+    payload: str
+    retain: bool
+    timestamp: float
+
+
+class MqttTap:
+    def __init__(self, host: str, port: int, username: str | None,
+                 password: str | None, subscriptions: list[tuple[str, int]]):
+        try:
+            import paho.mqtt.client as mqtt
+        except ImportError as e:
+            raise RuntimeError(
+                "paho-mqtt is required for --mqtt-smoke; install with 'python3 -m pip install paho-mqtt'"
+            ) from e
+
+        self._mqtt = mqtt
+        self._client = mqtt.Client(client_id=f"cw-hw-{uuid.uuid4().hex[:10]}")
+        if username:
+            self._client.username_pw_set(username, password or "")
+        self._client.on_connect = self._on_connect
+        self._client.on_message = self._on_message
+        self._host = host
+        self._port = port
+        self._subscriptions = subscriptions
+        self._connected = threading.Event()
+        self._messages: list[MqttMessage] = []
+        self._queue: queue.Queue[MqttMessage] = queue.Queue()
+        self._lock = threading.Lock()
+
+    def _on_connect(self, client, userdata, flags, rc, properties=None):
+        if rc != 0:
+            return
+        for topic, qos in self._subscriptions:
+            client.subscribe(topic, qos=qos)
+        self._connected.set()
+
+    def _on_message(self, client, userdata, msg):
+        message = MqttMessage(
+            topic=msg.topic,
+            payload=msg.payload.decode("utf-8", errors="replace"),
+            retain=bool(getattr(msg, "retain", False)),
+            timestamp=time.time(),
+        )
+        with self._lock:
+            self._messages.append(message)
+        self._queue.put(message)
+
+    def start(self, timeout: int) -> None:
+        self._client.connect(self._host, self._port, keepalive=30)
+        self._client.loop_start()
+        if not self._connected.wait(timeout=timeout):
+            self.stop()
+            raise RuntimeError(f"MQTT tap could not connect to {self._host}:{self._port}")
+
+    def stop(self) -> None:
+        try:
+            self._client.loop_stop()
+        finally:
+            try:
+                self._client.disconnect()
+            except Exception:
+                pass
+
+    def publish(self, topic: str, payload: str, qos: int = 1, retain: bool = False) -> None:
+        info = self._client.publish(topic, payload, qos=qos, retain=retain)
+        info.wait_for_publish(timeout=10)
+        if info.rc != self._mqtt.MQTT_ERR_SUCCESS:
+            raise RuntimeError(f"publish failed for {topic!r}: rc={info.rc}")
+
+    def wait_for_topic(self, topic: str, timeout: int, description: str) -> MqttMessage:
+        return self.wait_for(lambda message: message.topic == topic, timeout=timeout, description=description)
+
+    def wait_for(self, predicate, timeout: int, description: str) -> MqttMessage:
+        deadline = time.time() + timeout
+        while True:
+            with self._lock:
+                for message in self._messages:
+                    if predicate(message):
+                        return message
+            remaining = deadline - time.time()
+            if remaining <= 0:
+                raise TimeoutError(f"Timed out waiting for {description}")
+            try:
+                message = self._queue.get(timeout=min(0.5, remaining))
+            except queue.Empty:
+                continue
+            if predicate(message):
+                return message
+
+
+@dataclass(frozen=True)
+class MqttSmokeConfig:
+    host: str
+    port: int
+    username: str
+    password: str | None
+    prefix: str
+    boot_timeout: int
+    timeout: int
+
+
+def build_mqtt_smoke_config(args) -> MqttSmokeConfig | None:
+    if not args.mqtt_smoke:
+        return None
+
+    host = args.mqtt_host or os.environ.get("MQTT_HOST")
+    if not host:
+        raise ValueError("--mqtt-smoke requires --mqtt-host or MQTT_HOST")
+
+    port = args.mqtt_port
+    if port is None:
+        port = int(os.environ.get("MQTT_PORT", "1883"))
+
+    username = args.mqtt_user if args.mqtt_user is not None else os.environ.get("MQTT_USER", "")
+    password = args.mqtt_pass if args.mqtt_pass is not None else os.environ.get("MQTT_PASS")
+    prefix = args.mqtt_prefix or f"cw-hw-{int(time.time())}-{uuid.uuid4().hex[:6]}"
+
+    return MqttSmokeConfig(
+        host=host,
+        port=port,
+        username=username,
+        password=password,
+        prefix=prefix,
+        boot_timeout=args.timeout,
+        timeout=args.mqtt_timeout,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -346,6 +536,152 @@ def stage_plugins(ip: str, version: str, result: Result) -> None:
             result.fail(f"plugin:{path.stem}", str(e))
 
 
+def stage_mqtt_smoke(ip: str, version: str, config: MqttSmokeConfig, result: Result) -> None:
+    print(f"\n[mqtt]   Broker-backed smoke against {config.host}:{config.port}...")
+    print(f"         Using unique topic prefix: {config.prefix}")
+
+    tap = MqttTap(
+        host=config.host,
+        port=config.port,
+        username=config.username or None,
+        password=config.password,
+        subscriptions=[("homeassistant/#", 1), (f"{config.prefix}/#", 1)],
+    )
+
+    try:
+        tap.start(timeout=config.timeout)
+        result.ok("MQTT tap connected", f"{config.host}:{config.port}")
+
+        http_set_key(ip, "mqttEnabled", 1)
+        http_set_key(ip, "mqttBroker", config.host)
+        http_set_key(ip, "mqttPort", config.port)
+        http_set_key(ip, "mqttUser", config.username)
+        if config.password is not None:
+            http_set_key(ip, "mqttPass", config.password, sensitive=True)
+        http_set_key(ip, "mqttPrefix", config.prefix)
+        result.ok("MQTT settings applied", config.prefix)
+
+        http_restart(ip)
+        result.ok("Restart requested", "MQTT config saved")
+
+        if stage_boot(ip, version, config.boot_timeout, result):
+            result.ok("Device rebooted for MQTT smoke", version)
+        else:
+            return
+
+        avail_message = tap.wait_for(
+            lambda m: m.topic.startswith(f"{config.prefix}/") and m.topic.endswith("/availability") and m.payload == "online",
+            timeout=config.timeout,
+            description="MQTT availability=online",
+        )
+        base_topic = avail_message.topic.rsplit("/", 1)[0]
+        state_topic = f"{base_topic}/state"
+        result.ok("MQTT availability published", avail_message.topic)
+        _assert_retained_delivery(
+            config,
+            avail_message.topic,
+            config.timeout,
+            lambda m: m.payload == "online",
+            "retained availability",
+        )
+        result.ok("MQTT availability retained", avail_message.topic)
+
+        brightness_discovery = tap.wait_for(
+            lambda m: m.topic.startswith("homeassistant/") and _matches_brightness_discovery(m.payload, base_topic),
+            timeout=config.timeout,
+            description="brightness discovery payload for the fresh prefix",
+        )
+        discovery_payload = json.loads(brightness_discovery.payload)
+        result.ok("HA discovery published", brightness_discovery.topic)
+        _assert_retained_delivery(
+            config,
+            brightness_discovery.topic,
+            config.timeout,
+            lambda m: _matches_brightness_discovery(m.payload, base_topic),
+            "retained discovery payload",
+        )
+        result.ok("HA discovery retained", brightness_discovery.topic)
+
+        initial_state = _wait_for_state(tap, state_topic, config.timeout)
+        current_brightness = int(initial_state.get("brightness", 0))
+        result.ok("MQTT state published", f"brightness={current_brightness}")
+
+        probe_brightness = choose_brightness_probe(current_brightness)
+        command_topic = discovery_payload["command_topic"]
+        tap.publish(command_topic, str(probe_brightness), qos=1, retain=False)
+        updated_state = _wait_for_state(
+            tap,
+            state_topic,
+            config.timeout,
+            predicate=lambda payload: int(payload.get("brightness", -1)) == probe_brightness,
+        )
+        result.ok(
+            "MQTT command round-trip",
+            f"{command_topic} -> brightness={updated_state.get('brightness')}",
+        )
+
+        if probe_brightness != current_brightness:
+            tap.publish(command_topic, str(current_brightness), qos=1, retain=False)
+            _wait_for_state(
+                tap,
+                state_topic,
+                config.timeout,
+                predicate=lambda payload: int(payload.get("brightness", -1)) == current_brightness,
+            )
+            result.ok("MQTT brightness restored", str(current_brightness))
+    except Exception as e:
+        result.fail("MQTT smoke", str(e))
+    finally:
+        tap.stop()
+
+
+def _matches_brightness_discovery(payload: str, base_topic: str) -> bool:
+    try:
+        body = json.loads(payload)
+    except json.JSONDecodeError:
+        return False
+    return (
+        body.get("command_topic") == f"{base_topic}/set/brightness"
+        and body.get("state_topic") == f"{base_topic}/state"
+        and body.get("availability_topic") == f"{base_topic}/availability"
+    )
+
+
+def _wait_for_state(tap: MqttTap, state_topic: str, timeout: int, predicate=None) -> dict:
+    def matches(message: MqttMessage) -> bool:
+        if message.topic != state_topic:
+            return False
+        try:
+            payload = json.loads(message.payload)
+        except json.JSONDecodeError:
+            return False
+        if predicate and not predicate(payload):
+            return False
+        return True
+
+    message = tap.wait_for(matches, timeout=timeout, description=f"state on {state_topic}")
+    return json.loads(message.payload)
+
+
+def _assert_retained_delivery(config: MqttSmokeConfig, topic: str, timeout: int, predicate, description: str) -> None:
+    retained_tap = MqttTap(
+        host=config.host,
+        port=config.port,
+        username=config.username or None,
+        password=config.password,
+        subscriptions=[(topic, 1)],
+    )
+    try:
+        retained_tap.start(timeout=timeout)
+        retained_message = retained_tap.wait_for_topic(topic, timeout, description)
+        if not retained_message.retain:
+            raise AssertionError(f"Expected retained delivery for {topic}")
+        if not predicate(retained_message):
+            raise AssertionError(f"Unexpected payload for {topic}")
+    finally:
+        retained_tap.stop()
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -378,10 +714,29 @@ def main() -> int:
                         help=f"Boot wait timeout in seconds (default: {BOOT_TIMEOUT_S})")
     parser.add_argument("--skip-flash", action="store_true",
                         help="Skip OTA flash — run checks only")
+    parser.add_argument("--mqtt-smoke", action="store_true",
+                        help="Run broker-backed MQTT + HA discovery smoke checks after HTTP checks")
+    parser.add_argument("--mqtt-host",  default=None,
+                        help="Broker host/IP reachable from both the device and this test runner")
+    parser.add_argument("--mqtt-port",  default=None, type=int,
+                        help="Broker port (default: 1883 or MQTT_PORT env var)")
+    parser.add_argument("--mqtt-user",  default=None,
+                        help="Broker username for both the device and the local MQTT tap (optional)")
+    parser.add_argument("--mqtt-pass",  default=None,
+                        help="Broker password for both the device and the local MQTT tap (optional)")
+    parser.add_argument("--mqtt-prefix", default=None,
+                        help="MQTT topic prefix to apply on the device (defaults to a fresh per-run prefix)")
+    parser.add_argument("--mqtt-timeout", default=MQTT_TIMEOUT_S, type=int,
+                        help=f"MQTT broker/event wait timeout in seconds (default: {MQTT_TIMEOUT_S})")
     args = parser.parse_args()
 
     result  = Result()
     version = args.version or get_build_version()
+    try:
+        mqtt_config = build_mqtt_smoke_config(args)
+    except ValueError as e:
+        print(f"[error] {e}")
+        return 1
 
     ip = args.ip or os.environ.get("DEVICE_IP")
     if not ip:
@@ -416,6 +771,8 @@ def main() -> int:
         print(f"(skip-flash — checks only)\n")
 
     stage_checks(ip, version, result)
+    if mqtt_config:
+        stage_mqtt_smoke(ip, version, mqtt_config, result)
     stage_plugins(ip, version, result)
 
     _print_summary(result)

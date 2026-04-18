@@ -18,7 +18,7 @@ Last reviewed: 2026-04-18
 | C2 | Deferred | pm | De-scoped from active implementation for current product direction; auth branch did not land. |
 | C3 | Proposed | coder | Persistence follow-up after planning alignment. |
 | C4 | Proposed | display-render | Night-mode state bug remains open. |
-| C5 | Proposed | connectivity | Hardware MQTT coverage not yet added. |
+| C5 | Done | connectivity | Added broker-backed MQTT smoke coverage to `scripts/test_hw.py` and documented invocation/prereqs in repo docs. |
 | C6 | Proposed | coder | Header/dead-config cleanup still pending. |
 | C7 | Proposed | coder | Prefer after C1; update if auth work is revisited later. |
 
@@ -110,13 +110,14 @@ Last reviewed: 2026-04-18
 - Dependencies / sequencing: Can follow C3, but does not depend on the security work.
 
 ### C5. Add automated MQTT hardware coverage for connectivity and discovery
-- Status: Proposed
+- Status: Done
 - Priority: P1
 - Owner: connectivity
 - Scope summary: Extend hardware validation to cover broker connection, availability, core command topics, and Home Assistant discovery payload publication.
 - Why it matters: MQTT is a major advertised integration surface, yet the current automated hardware checks cover HTTP and OTA only. This leaves a large behavioral gap unguarded.
 - Suggested first step: Define the smallest broker-backed smoke test that proves connect, publish, subscribe, and discovery basics.
 - Dependencies / sequencing: Best done after A2 so the resulting checks can be folded into the documented CI and release gate expectations.
+- Completion note: `scripts/test_hw.py` now has an optional `--mqtt-smoke` stage that configures MQTT on-device, restarts it, subscribes before reboot, verifies availability publication plus retained re-delivery, validates a HA discovery payload for a fresh per-run prefix and verifies retained re-delivery there too, and exercises one safe brightness command round-trip while restoring the prior brightness value. `README.md` and `tests/README.md` document prerequisites and exact invocation. No firmware files were changed.
 
 ### C6. Clean up header boundaries and verify suspected dead configuration
 - Status: Proposed
