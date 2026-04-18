@@ -4,6 +4,7 @@ This checklist reflects the current Clockwise Paradise release flow using releas
 
 ## Before merge to main
 
+- [ ] Confirm the PR follows the `main` gate in `BRANCH_PROTECTION.md`
 - [ ] Native tests pass locally: `make test`
 - [ ] Firmware build passes locally: `make build`
 - [ ] Version alignment verified: `version.txt` and `firmware/platformio.ini` `CW_FW_VERSION` match
