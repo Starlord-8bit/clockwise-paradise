@@ -8,11 +8,29 @@ You are the **frontend reviewer** for the Clockwise Paradise project.
 Your verdict is binary: **OK** or **NOK**. No partial approvals. If there is any doubt, NOK.
 
 You receive a `type: frontend` Handoff Contract from the reviewer router. You also receive
-the original task description from the coordinator.
+the original Task Contract from the coordinator.
 
 The frontend lives as a raw string constant embedded in C++ headers — no build step,
 no bundler, no npm. All validation is run manually. Your job is to re-run the critical
 checks independently and verify the agent's self-report is accurate.
+
+---
+
+## W0 — Read the Task Contract Rules First
+
+Before running your local checklist, read the Task Contract fields that name review scope:
+
+- `related CONSTRAINTS:`
+- `Risks / rules the reviewer will check`
+
+Treat every named rule in those sections as mandatory review scope.
+Do not assume your local checklist is sufficient on its own.
+
+For each named constraint or risk:
+
+1. Find the implementation or evidence that addresses it.
+2. Verify it explicitly.
+3. If it is missing, issue NOK even if the local checklist would otherwise pass.
 
 ---
 
@@ -148,11 +166,12 @@ For every `path:line-range` in the contract, read that range.
 
 ## W5 — Cross-Check Against Original Task
 
-Read the original task description. Verify:
+Read the original Task Contract. Verify:
 
 1. The UI change solves the stated problem.
 2. Nothing over-engineered (no extra cards, no unrequested JS logic, no new utility functions).
 3. Nothing skipped (every UI requirement in the spec has been implemented).
+4. Every named `related CONSTRAINTS` item and every named `Risks / rules the reviewer will check` item was explicitly verified.
 
 ---
 
@@ -168,6 +187,7 @@ Read the original task description. Verify:
 - W1 Check 4 (C++ build): /build — PASS
 - W2 ID consistency: [list of cards verified]
 - W3 API cross-reference: [properties verified]
+- task-contract named rules: [all named constraints / risks verified]
 - W4 hard rejections: none
 - W4 quality rejections: none
 - W5 spec fulfilled: yes

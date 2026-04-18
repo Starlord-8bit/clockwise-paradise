@@ -75,7 +75,7 @@ Classify the request. This decides the specialist and whether you need a /task-c
 | **Connectivity** | WiFi, MQTT, HA Discovery, OTA | `connectivity` |
 | **Git / release** | "make a PR", "cut a release", "merge #NN" | `github-specialist` directly |
 | **Question only** | "how does X work?" | answer from code / CLAUDE.md; no dispatch |
-| **Chore / docs** | "tidy the README", "rename a file" | `coder` with chore scope |
+| **Chore / docs** | "tidy the README", "rename a file" | `coder` with docs/chore scope; if the task is docs-only, bypass `reviewer` after local verification |
 
 When unsure between `coder` and a specialist: pick the specialist if the change touches any CONSTRAINTS.md rule (RT-1 to RT-15) directly. Routine settings, endpoints, and logic changes go to `coder`.
 
@@ -85,7 +85,7 @@ When unsure between `coder` and a specialist: pick the specialist if the change 
 
 Call `/task-contract` to produce the spec. Every dispatch carries a Task Contract. Never paraphrase the user — the Task Contract is the single definition of done.
 
-If the change is genuinely trivial (one-line typo, README paragraph) you may dispatch with a one-paragraph brief instead. Note this explicitly so the specialist does not expect a full contract.
+If the task is genuinely trivial and docs-only (one-line typo, README paragraph) you may dispatch with a one-paragraph brief instead. That brief must still name the goal, in-scope file or files, out-of-scope boundary, acceptance expectation, and verification required. Note this explicitly so the specialist does not expect a full contract.
 
 ---
 
@@ -113,6 +113,7 @@ If multiple specialists are needed (e.g., new setting = coder + frontend): dispa
 
 - Specialist produces Handoff Contract → route to `reviewer`.
 - `reviewer` is just a router; it picks `reviewer-firmware` or `reviewer-frontend` based on the contract `type:` field.
+- Docs-only tasks do not go through `reviewer`. They return directly to the coordinator after local verification and must not be wrapped in a fake firmware or frontend handoff.
 - On OK: proceed to Step 8.
 - On NOK: pass the verdict back to the specialist. It tries again, up to 3 iterations.
 - On 3rd NOK: receive the Escalation Report, bring to user in plain English with options.
@@ -124,6 +125,8 @@ Never override a reviewer NOK yourself. Never ask the reviewer to "be more lenie
 ## Step 8 — Integrate
 
 Call `github-specialist` with the approved contract(s). They stage only the declared files, commit with a Conventional Commit message, push, and open a PR if the user asked for one.
+
+For docs-only tasks, pass the Task Contract or explicit brief plus the coder's completion note to `github-specialist`. No reviewer approval is expected for that path.
 
 For multi-specialist flows (e.g., coder + frontend on the same feature):
 - Pass both approved Handoff Contracts together to `github-specialist`.
