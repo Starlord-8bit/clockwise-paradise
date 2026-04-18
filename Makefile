@@ -34,7 +34,7 @@ DIST_PART := $(DIST_DIR)/partition-table.bin
 # For flash-ota: explicit IP= on command line takes priority, falls back to DEVICE_IP from .env
 _FLASH_IP := $(or $(IP),$(DEVICE_IP))
 
-.PHONY: tools-setup tools-check pio-test test build check flash flash-ota test-hw clean help
+.PHONY: tools-setup tools-check pio-test test build check flash flash-ota test-hw install-hooks clean help
 
 ## Install pinned local developer tools in .venv-tools (platformio + cmake)
 tools-setup:
@@ -119,6 +119,15 @@ test-hw: build
 	  --bin     "$(DIST_APP)" \
 	  $(if $(PORT),--port "$(PORT)",)
 
+## Install git pre-commit hook (cppcheck on staged C++ files)
+## Run once per clone: make install-hooks
+install-hooks:
+	@hook_dir="$$(git rev-parse --git-path hooks)"; \
+	mkdir -p "$$hook_dir"; \
+	cp scripts/pre-commit "$$hook_dir/pre-commit"; \
+	chmod +x "$$hook_dir/pre-commit"; \
+	echo "pre-commit hook installed at $$hook_dir/pre-commit."
+
 ## Remove compile artifacts and the current version's dist folder
 ## (build/compile is Docker root-owned — uses sudo if plain rm fails)
 clean:
@@ -139,6 +148,7 @@ help:
 	@echo "  flash       Flash over USB   (PORT=$(PORT)  BAUD=$(BAUD))"
 	@echo "  flash-ota   Flash over Wi-Fi (DEVICE_IP or IP=<addr>)"
 	@echo "  test-hw     Build + OTA flash + hardware verification (DEVICE_IP in .env)"
+	@echo "  install-hooks Install cppcheck pre-commit hook (run once per clone)"
 	@echo "  clean       Remove build/compile and build/$(VERSION)"
 	@echo ""
 	@echo "Local config: copy .env.example -> .env and set DEVICE_IP"
