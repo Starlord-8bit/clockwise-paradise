@@ -1,6 +1,10 @@
 #include "unity.h"
+#include <deque>
 #include <stdint.h>
 #include <string>
+#include <vector>
+
+#include "CWLogic.h"
 
 void setUp(void) {}
 void tearDown(void) {}
@@ -141,6 +145,161 @@ void test_version_normalization_update_available(void) {
     TEST_ASSERT_TRUE(ota_update_available("2.8.1", "v2.9.0"));
 }
 
+void test_sensitive_setting_detection(void) {
+    TEST_ASSERT_TRUE(cw::logic::isSensitiveSetKey("wifiPwd"));
+    TEST_ASSERT_TRUE(cw::logic::isSensitiveSetKey("mqttPass"));
+    TEST_ASSERT_FALSE(cw::logic::isSensitiveSetKey("wifiSsid"));
+}
+
+void test_sensitive_body_overrides_query_value(void) {
+    cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("wifiPwd", "legacy", "new%20secret", true);
+    TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kResolvedFromBody, resolved.status);
+    TEST_ASSERT_EQUAL_STRING("wifiPwd", resolved.key.c_str());
+    TEST_ASSERT_EQUAL_STRING("new secret", resolved.value.c_str());
+}
+
+void test_sensitive_body_supports_form_value_with_query_key(void) {
+    cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("mqttPass", "", "value=broker%2Bsecret", true);
+    TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kResolvedFromBody, resolved.status);
+    TEST_ASSERT_EQUAL_STRING("mqttPass", resolved.key.c_str());
+    TEST_ASSERT_EQUAL_STRING("broker+secret", resolved.value.c_str());
+}
+
+void test_sensitive_body_supports_key_value_form(void) {
+    cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("", "", "key=wifiPwd&value=form+secret", true);
+    TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kResolvedFromBody, resolved.status);
+    TEST_ASSERT_EQUAL_STRING("wifiPwd", resolved.key.c_str());
+    TEST_ASSERT_EQUAL_STRING("form secret", resolved.value.c_str());
+}
+
+void test_non_sensitive_query_behavior_unchanged(void) {
+    cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("displayBright", "42", "99", true);
+    TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kUseQuery, resolved.status);
+    TEST_ASSERT_EQUAL_STRING("displayBright", resolved.key.c_str());
+    TEST_ASSERT_EQUAL_STRING("42", resolved.value.c_str());
+}
+
+void test_sensitive_query_fallback_still_works(void) {
+    cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("wifiPwd", "legacy%20secret", "", true);
+    TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kUseQuery, resolved.status);
+    TEST_ASSERT_EQUAL_STRING("wifiPwd", resolved.key.c_str());
+    TEST_ASSERT_EQUAL_STRING("legacy%20secret", resolved.value.c_str());
+}
+
+void test_incomplete_sensitive_body_is_rejected(void) {
+    cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("wifiPwd", "legacy", "value=new", false);
+    TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kRejectIncompleteBody, resolved.status);
+    TEST_ASSERT_EQUAL_STRING("wifiPwd", resolved.key.c_str());
+    TEST_ASSERT_EQUAL_STRING("legacy", resolved.value.c_str());
+}
+
+void test_invalid_sensitive_form_body_is_rejected(void) {
+    cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("wifiPwd", "legacy", "value", true);
+    TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kRejectInvalidBody, resolved.status);
+    TEST_ASSERT_EQUAL_STRING("wifiPwd", resolved.key.c_str());
+    TEST_ASSERT_EQUAL_STRING("legacy", resolved.value.c_str());
+}
+
+struct ScheduledBodyChunk {
+    unsigned long atMs;
+    std::string data;
+};
+
+class FakeRequestBodyTransport {
+  public:
+    FakeRequestBodyTransport(std::initializer_list<ScheduledBodyChunk> chunks)
+        : scheduled(chunks.begin(), chunks.end()) {
+        pump();
+    }
+
+    int available() {
+        pump();
+        return static_cast<int>(buffer.size());
+    }
+
+    size_t readInto(std::string& target, size_t remaining) {
+        pump();
+        size_t appended = 0;
+        while (appended < remaining && !buffer.empty()) {
+            target.push_back(buffer.front());
+            buffer.pop_front();
+            ++appended;
+        }
+        return appended;
+    }
+
+    void waitTick() {
+        ++nowMs;
+        pump();
+    }
+
+    unsigned long now() const {
+        return nowMs;
+    }
+
+  private:
+    void pump() {
+        while (nextChunk < scheduled.size() && scheduled[nextChunk].atMs <= nowMs) {
+            for (char ch : scheduled[nextChunk].data) {
+                buffer.push_back(ch);
+            }
+            ++nextChunk;
+        }
+    }
+
+    std::vector<ScheduledBodyChunk> scheduled;
+    std::deque<char> buffer;
+    size_t nextChunk = 0;
+    unsigned long nowMs = 0;
+};
+
+void test_split_request_body_is_collected_within_receive_window(void) {
+    FakeRequestBodyTransport transport({
+        {0, "value="},
+        {4, "broker"},
+        {7, "%2Bsecret"},
+    });
+
+    cw::logic::RequestBodyReadResult body = cw::logic::readRequestBodyWithinWindow(
+        std::string("value=broker%2Bsecret").size(),
+        cw::logic::kSetRequestBodyReceiveWindowMs,
+        [&transport]() { return transport.available(); },
+        [&transport](std::string& target, size_t remaining) { return transport.readInto(target, remaining); },
+        [&transport]() { transport.waitTick(); },
+        [&transport]() { return transport.now(); });
+
+    TEST_ASSERT_TRUE(body.complete);
+    TEST_ASSERT_EQUAL_STRING("value=broker%2Bsecret", body.body.c_str());
+
+    cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("mqttPass", "legacy", body.body, body.complete);
+    TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kResolvedFromBody, resolved.status);
+    TEST_ASSERT_EQUAL_STRING("mqttPass", resolved.key.c_str());
+    TEST_ASSERT_EQUAL_STRING("broker+secret", resolved.value.c_str());
+}
+
+void test_split_request_body_times_out_after_receive_window(void) {
+    FakeRequestBodyTransport transport({
+        {0, "value="},
+        {cw::logic::kSetRequestBodyReceiveWindowMs + 5, "late"},
+    });
+
+    cw::logic::RequestBodyReadResult body = cw::logic::readRequestBodyWithinWindow(
+        std::string("value=late").size(),
+        cw::logic::kSetRequestBodyReceiveWindowMs,
+        [&transport]() { return transport.available(); },
+        [&transport](std::string& target, size_t remaining) { return transport.readInto(target, remaining); },
+        [&transport]() { transport.waitTick(); },
+        [&transport]() { return transport.now(); });
+
+    TEST_ASSERT_FALSE(body.complete);
+    TEST_ASSERT_EQUAL_STRING("value=", body.body.c_str());
+
+    cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest("wifiPwd", "legacy", body.body, body.complete);
+    TEST_ASSERT_EQUAL(cw::logic::SetRequestResolutionStatus::kRejectIncompleteBody, resolved.status);
+    TEST_ASSERT_EQUAL_STRING("wifiPwd", resolved.key.c_str());
+    TEST_ASSERT_EQUAL_STRING("legacy", resolved.value.c_str());
+}
+
 int runUnityTests(void) {
     UNITY_BEGIN();
     RUN_TEST(test_ota_rollback_eligible_new);
@@ -158,6 +317,16 @@ int runUnityTests(void) {
     RUN_TEST(test_url_decode_symbols);
     RUN_TEST(test_version_normalization_equivalent);
     RUN_TEST(test_version_normalization_update_available);
+    RUN_TEST(test_sensitive_setting_detection);
+    RUN_TEST(test_sensitive_body_overrides_query_value);
+    RUN_TEST(test_sensitive_body_supports_form_value_with_query_key);
+    RUN_TEST(test_sensitive_body_supports_key_value_form);
+    RUN_TEST(test_non_sensitive_query_behavior_unchanged);
+    RUN_TEST(test_sensitive_query_fallback_still_works);
+    RUN_TEST(test_incomplete_sensitive_body_is_rejected);
+    RUN_TEST(test_invalid_sensitive_form_body_is_rejected);
+    RUN_TEST(test_split_request_body_is_collected_within_receive_window);
+    RUN_TEST(test_split_request_body_times_out_after_receive_window);
     return UNITY_END();
 }
 
