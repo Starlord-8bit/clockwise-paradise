@@ -17,3 +17,5 @@ dependencies.lock
 
 # Local pinned developer toolchain (cmake/platformio)
 .venv-tools/
+
+graphify*
