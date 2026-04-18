@@ -1,10 +1,10 @@
 #include "DisplayControl.h"
 
+#include <NightModeLogic.h>
+
 #include <CWPreferences.h>
 #include <esp_log.h>
 
-static constexpr uint8_t MIN_BRIGHT_DISPLAY_ON = 4;
-static constexpr uint8_t MIN_BRIGHT_DISPLAY_OFF = 0;
 static constexpr uint8_t ONBOARD_LED_PIN = 2;
 
 static bool isValidI2SSpeed(uint32_t speed) {
@@ -17,14 +17,48 @@ static bool isValidDriver(uint32_t driver) {
 
 static bool isNightTime(AppState& state) {
   auto* prefs = ClockwiseParams::getInstance();
-  int nowMins = state.dateTime.getHour() * 60 + state.dateTime.getMinute();
-  int startMins = prefs->nightStartH * 60 + prefs->nightStartM;
-  int endMins = prefs->nightEndH * 60 + prefs->nightEndM;
+  return cw::logic::isNightWindow(
+      state.dateTime.getHour(),
+      state.dateTime.getMinute(),
+      prefs->nightStartH,
+      prefs->nightStartM,
+      prefs->nightEndH,
+      prefs->nightEndM);
+}
 
-  if (startMins < endMins) {
-    return nowMins >= startMins && nowMins < endMins;
+static cw::logic::BrightnessTarget resolveCurrentNormalBrightnessTarget(AppState& state) {
+  auto* prefs = ClockwiseParams::getInstance();
+  int currentLdrValue = 0;
+  if (prefs->brightMethod == cw::logic::kBrightnessMethodLdr) {
+    currentLdrValue = analogRead(prefs->ldrPin);
   }
-  return nowMins >= startMins || nowMins < endMins;
+
+  return cw::logic::resolveNormalBrightnessTarget(
+      prefs->brightMethod,
+      state.wifi.connectionSucessfulOnce,
+      isNightTime(state),
+      prefs->displayBright,
+      prefs->nightBright,
+      currentLdrValue,
+      prefs->autoBrightMin,
+      prefs->autoBrightMax);
+}
+
+static void applyBrightnessTarget(AppState& state,
+                                  const cw::logic::BrightnessTarget& target,
+                                  bool force = false) {
+  if (!target.hasValue) {
+    return;
+  }
+
+  if (!force && state.currentBrightness == target.brightness &&
+      state.currentBrightSlot == target.slot) {
+    return;
+  }
+
+  state.display->setBrightness8(target.brightness);
+  state.currentBrightness = target.brightness;
+  state.currentBrightSlot = target.slot;
 }
 
 void displaySetup(AppState& state, uint8_t ledColorOrder, bool reversePhase,
@@ -65,6 +99,7 @@ void displaySetup(AppState& state, uint8_t ledColorOrder, bool reversePhase,
   }
 
   state.display->setBrightness8(displayBright);
+  state.currentBrightness = displayBright;
   state.display->clearScreen();
   state.display->setRotation(displayRotation);
 }
@@ -72,7 +107,7 @@ void displaySetup(AppState& state, uint8_t ledColorOrder, bool reversePhase,
 void automaticBrightControl(AppState& state) {
   auto* prefs = ClockwiseParams::getInstance();
 
-  if (prefs->brightMethod == 2) {
+  if (state.nightModeActive || prefs->brightMethod == cw::logic::kBrightnessMethodFixed) {
     return;
   }
 
@@ -81,35 +116,20 @@ void automaticBrightControl(AppState& state) {
   }
   state.autoBrightMillis = millis();
 
-  if (prefs->brightMethod == 0 && prefs->autoBrightMax > 0) {
-    int16_t currentValue = analogRead(prefs->ldrPin);
-    uint16_t ldrMin = prefs->autoBrightMin;
-    uint16_t ldrMax = prefs->autoBrightMax;
-
-    const uint8_t minBright =
-        (currentValue < ldrMin ? MIN_BRIGHT_DISPLAY_OFF : MIN_BRIGHT_DISPLAY_ON);
-    uint8_t maxBright = prefs->displayBright;
-    uint8_t slots = 10;
-    uint8_t mappedLdr =
-        map(currentValue > ldrMax ? ldrMax : currentValue, ldrMin, ldrMax, 1, slots);
-    uint8_t mappedBright = map(mappedLdr, 1, slots, minBright, maxBright);
-
-    if (abs(state.currentBrightSlot - mappedLdr) >= 2 || mappedBright == 0) {
-      state.display->setBrightness8(mappedBright);
-      state.currentBrightSlot = mappedLdr;
-    }
-  } else if (prefs->brightMethod == 1 && state.wifi.connectionSucessfulOnce) {
-    uint8_t targetBright = isNightTime(state) ? prefs->nightBright : prefs->displayBright;
-    if (state.currentBrightSlot != targetBright) {
-      state.display->setBrightness8(targetBright);
-      state.currentBrightSlot = targetBright;
-    }
+  const auto target = resolveCurrentNormalBrightnessTarget(state);
+  if (cw::logic::shouldApplyAutomaticBrightness(
+          prefs->brightMethod, state.currentBrightSlot, target)) {
+    applyBrightnessTarget(state, target);
   }
 }
 
 void nightModeCheck(AppState& state) {
   auto* prefs = ClockwiseParams::getInstance();
   if (prefs->nightMode == 0) {
+    if (state.nightModeActive) {
+      state.nightModeActive = false;
+      applyBrightnessTarget(state, resolveCurrentNormalBrightnessTarget(state), true);
+    }
     return;
   }
 
@@ -123,15 +143,20 @@ void nightModeCheck(AppState& state) {
     inNight = isNightTime(state);
   }
 
-  if (inNight && !state.nightModeActive) {
+  const auto transition =
+      cw::logic::resolveNightModeTransition(state.nightModeActive, inNight);
+  const cw::logic::BrightnessTarget nightTarget = {
+      true,
+      cw::logic::resolveNightModeBrightness(prefs->nightAction, prefs->nightMinBr),
+      -1};
+
+  if (transition == cw::logic::NightModeTransition::kEnterNight) {
     state.nightModeActive = true;
-    if (prefs->nightAction == 0) {
-      state.display->setBrightness8(0);
-    } else {
-      state.display->setBrightness8(prefs->nightMinBr);
-    }
-  } else if (!inNight && state.nightModeActive) {
+    applyBrightnessTarget(state, nightTarget, true);
+  } else if (transition == cw::logic::NightModeTransition::kStayNight) {
+    applyBrightnessTarget(state, nightTarget);
+  } else if (transition == cw::logic::NightModeTransition::kExitNight) {
     state.nightModeActive = false;
-    state.display->setBrightness8(prefs->displayBright);
+    applyBrightnessTarget(state, resolveCurrentNormalBrightnessTarget(state), true);
   }
 }

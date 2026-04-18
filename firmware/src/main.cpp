@@ -87,8 +87,8 @@ void loop()
     autoChangeCheck(appState);
   }
 
-  automaticBrightControl(appState);
   nightModeCheck(appState);
+  automaticBrightControl(appState);
 
   // Keep a 1 ms yield for IDLE1; prevents loopTask watchdog panics.
   // vTaskDelay(0) does not yield on ESP-IDF v4.4.
