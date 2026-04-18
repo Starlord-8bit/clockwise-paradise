@@ -59,6 +59,19 @@ A Task Contract turns an informal user request into a spec the specialist can ex
 - **In-scope / out-of-scope are binding.** If the specialist needs a file not listed, they must stop and ask.
 - **Name the rules in play.** If the change touches `loop()`, name RT-1. If it adds an NVS key, name RT-4. For reviewer-routed work, the reviewer must verify every named rule explicitly.
 - **Known unknowns section is where the PM makes defensible defaults.** Specialists follow the default unless they hit a blocker.
+- **Mixed-domain features need explicit ownership.** State whether `frontend`, `coder`, or `connectivity` owns each part of the work instead of assuming the specialist will infer it.
+
+For mixed UI plus firmware/connectivity work, use this decision rule:
+- `frontend` owns HTML/JS/CSS in `SettingsWebPage.h` and `CWWebUI.h`
+- `coder` owns local device state, preferences, HTTP endpoints, and non-network backend logic
+- `connectivity` owns WiFi, MQTT, HA Discovery, OTA, and changes to network semantics or integration contracts
+
+When one user-visible feature spans more than one specialist:
+- keep one branch for the feature
+- split acceptance criteria by specialist
+- split in-scope files by specialist
+- add a sequencing note naming who goes first and why
+- keep the final integration on one PR unless the user explicitly asks otherwise
 
 ## Docs-only exception
 
@@ -82,6 +95,7 @@ A full Task Contract is still preferred. A one-paragraph brief is acceptable onl
 - Task Contract that lists code changes line by line → that's the specialist's job.
 - Task Contract with no tests — flag it, then either add a test plan or explicitly document HW-only.
 - Task Contract that touches more than one specialist's domain without a plan for sequencing — split it.
+- Task Contract that mixes UI, firmware, and connectivity acceptance into one undifferentiated list — separate ownership and ordering.
 
 ## After writing the contract
 

@@ -79,6 +79,13 @@ Classify the request. This decides the specialist and whether you need a /task-c
 
 When unsure between `coder` and a specialist: pick the specialist if the change touches any CONSTRAINTS.md rule (RT-1 to RT-15) directly. Routine settings, endpoints, and logic changes go to `coder`.
 
+For mixed web UI plus firmware work, apply this ownership split explicitly:
+- `frontend` owns HTML/JS/CSS in `SettingsWebPage.h` and `CWWebUI.h`.
+- `coder` owns local device state, preferences, HTTP endpoints, and non-network backend logic.
+- `connectivity` owns WiFi, MQTT, HA Discovery, OTA, and changes to network semantics or integration contracts.
+
+Decision rule: frontend for presentation, coder for local device state and API wiring, connectivity when the task changes network behavior instead of only wiring an existing local setting.
+
 ---
 
 ## Step 4 — Task Contract
@@ -86,6 +93,13 @@ When unsure between `coder` and a specialist: pick the specialist if the change 
 Call `/task-contract` to produce the spec. Every dispatch carries a Task Contract. Never paraphrase the user — the Task Contract is the single definition of done.
 
 If the task is genuinely trivial and docs-only (one-line typo, README paragraph) you may dispatch with a one-paragraph brief instead. That brief must still name the goal, in-scope file or files, out-of-scope boundary, acceptance expectation, and verification required. Note this explicitly so the specialist does not expect a full contract.
+
+If one feature spans UI plus firmware or connectivity, keep one branch but split the Task Contract by specialist:
+- separate acceptance criteria for each owner
+- separate in-scope files for each owner
+- a sequencing note stating who goes first and why
+
+Do not write one blended mixed-domain task that leaves ownership implicit.
 
 ---
 
@@ -106,6 +120,11 @@ Record the branch name in the Task Contract.
 Hand the Task Contract to the specialist. Pass the full contract verbatim. Do not trim.
 
 If multiple specialists are needed (e.g., new setting = coder + frontend): dispatch the coder first. The frontend agent needs the backend endpoint to exist before its Check 3 can pass.
+
+Make the sequence specific for mixed UI work:
+- If the task changes local settings, endpoint shape, validation, or other non-network backend logic, dispatch `coder` first, then `frontend`.
+- If the task changes WiFi, MQTT, HA discovery, OTA, or other network-facing semantics, dispatch `connectivity` first, then `frontend`.
+- If both backend and connectivity scopes are present, dispatch the specialist whose contract creates the first stable interface the UI depends on, and say that in the contract.
 
 ---
 
@@ -132,6 +151,8 @@ For multi-specialist flows (e.g., coder + frontend on the same feature):
 - Pass both approved Handoff Contracts together to `github-specialist`.
 - Both sets of declared files land in a single PR on the same branch (two commits is fine; one squash is fine).
 - The PR title uses the highest-impact Conventional Commit type across both contracts (`feat` > `fix` > `chore`).
+
+Mixed UI plus firmware work does not become separate PRs unless the user explicitly asks for that. The default is one branch and one PR after both specialist scopes are approved.
 
 Types that bump releases: `feat` (minor), `fix` (patch), `feat!` (major). `chore/ci/docs/refactor/test` do not release. This matters — release-please reads the squash-merge title.
 

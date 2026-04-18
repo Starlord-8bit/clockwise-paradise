@@ -96,7 +96,11 @@ Add one card to `createCards()` in `SettingsWebPage.h`:
 
 ## Coordinator Notes
 
-- Dispatch **coder first** — the frontend agent cannot verify Check 3 until the endpoint exists.
+- Ownership rule: `frontend` owns `SettingsWebPage.h` and `CWWebUI.h` presentation, `coder` owns local settings/preferences/endpoints, and `connectivity` owns WiFi/MQTT/HA/OTA semantics.
+- Dispatch **coder first** for local settings and endpoint work — the frontend agent cannot verify Check 3 until the endpoint exists.
+- If the setting changes WiFi, MQTT, HA Discovery, OTA, or other network-facing semantics, dispatch `connectivity` first and keep the frontend work second.
 - Frontend Check 3 will be BLOCKED until the coder agent's PR is reviewer-approved.
+- If connectivity owns the backend slice, Frontend Check 3 stays blocked until the connectivity contract is reviewer-approved.
 - After both contracts pass review, the GitHub Specialist commits both sets of changes
   in a single commit or two sequential commits on the same branch.
+- Keep one branch and one PR for the full setting unless the user explicitly asks to split delivery.

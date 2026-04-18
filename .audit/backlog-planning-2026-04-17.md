@@ -12,8 +12,8 @@ Last reviewed: 2026-04-18
 | --- | --- | --- | --- |
 | A1 | Done | coder | Consolidating planning/status into this file. |
 | A2 | Done | coder | Added `BRANCH_PROTECTION.md` and linked it from `CHECKLIST.md`; documented required checks and the `paths-ignore` caveat. |
-| A3 | Proposed | reviewer-firmware | Reviewer coverage matrix not started here. |
-| A4 | Proposed | pm | Needed before mixed web/UI and firmware tasks. |
+| A3 | Done | coder | Added `REVIEWER_ENFORCEMENT.md` and aligned PM/coder/reviewer docs on docs-only routing, contract validity, and named-rule enforcement. |
+| A4 | Done | coder | Added `MIXED_SURFACE_OWNERSHIP.md` and aligned PM, task-contract, and add-setting guidance on mixed UI plus firmware/connectivity ownership and sequencing. |
 | C1 | Done | pm | Implemented on PR #32. |
 | C2 | Proposed | pm | Depends on C1 and A4. |
 | C3 | Proposed | coder | Persistence follow-up after planning alignment. |
@@ -52,22 +52,24 @@ Last reviewed: 2026-04-18
 - Completion note: Added `BRANCH_PROTECTION.md` as the tracked repo-operations note, linked it from `CHECKLIST.md`, listed the current PR-time checks by job name, documented the squash-merge and release-please contract, and called out that `paths-ignore` prevents those checks from running on docs-only and clockface-only pull requests.
 
 ### A3. Align reviewer enforcement with current constraints and handoff contracts
-- Status: Proposed
+- Status: Done
 - Priority: P1
-- Owner: reviewer-firmware
+- Owner: coder
 - Scope summary: Verify that the reviewer workflow explicitly checks the hard constraints in `CONSTRAINTS.md`, the coder handoff contract, and documentation-only task handling.
 - Why it matters: The repo intentionally relies on reviewer enforcement to keep boundaries safe. If the review gate drifts from `CONSTRAINTS.md`, the architecture loses its main protection against regressions and hidden scope creep.
 - Suggested first step: Build a simple coverage matrix mapping RT-1 through RT-16 to concrete reviewer checks and note any gaps.
 - Dependencies / sequencing: Can run in parallel with A2 after A1.
+- Completion note: Added `REVIEWER_ENFORCEMENT.md`, documented that docs-only work bypasses reviewer instead of pretending to be firmware/frontend, required the reviewer router to reject malformed handoffs, and updated specialist reviewer docs to verify every named Task Contract constraint/risk explicitly.
 
 ### A4. Clarify ownership for cross-cutting web UI plus firmware tasks
-- Status: Proposed
+- Status: Done
 - Priority: P2
-- Owner: pm
+- Owner: coder
 - Scope summary: Define how tasks that span `SettingsWebPage.h` and `CWWebServer.h` should be split or coordinated between `frontend`, `coder`, and `connectivity`.
 - Why it matters: The next hardening items cross those boundaries. Clear ownership reduces task bounce, partial fixes, and mismatched server/UI behavior.
 - Suggested first step: Add a short coordination rule to the task-contract process for mixed UI plus endpoint changes.
 - Dependencies / sequencing: Finish before starting C1 or C2.
+- Completion note: Added `MIXED_SURFACE_OWNERSHIP.md` at repo root, made PM routing explicit for mixed UI plus firmware/connectivity work, required Task Contracts to split acceptance and file scope by specialist, and aligned the add-setting coordinator prompt with the same sequencing and one-branch/one-PR rule.
 
 ## 2. Codebase audit follow-up
 
