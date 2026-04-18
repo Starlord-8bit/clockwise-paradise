@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# pre-commit: run cppcheck on staged C++ files (excluding third-party components/).
+# Install once with: make install-hooks
+# Bypass (rare): git commit --no-verify
+
+set -euo pipefail
+
+# Collect staged .cpp and .h files from the git index (not the working tree).
+mapfile -t STAGED < <(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h)$' || true)
+
+if [[ ${#STAGED[@]} -eq 0 ]]; then
+    exit 0
+fi
+
+# Filter out third-party files under components/.
+mapfile -t FILES < <(printf '%s\n' "${STAGED[@]}" | grep -v '^components/' || true)
+
+if [[ ${#FILES[@]} -eq 0 ]]; then
+    exit 0
+fi
+
+if ! command -v cppcheck &>/dev/null; then
+    echo "pre-commit: cppcheck not found — install it (apt install cppcheck) or skip with git commit --no-verify"
+    exit 1
+fi
+
+echo "pre-commit: running cppcheck on ${#FILES[@]} staged file(s)..."
+
+# Run cppcheck; capture stderr (where cppcheck writes findings).
+# --error-exitcode=1  → non-zero exit when any error is found
+# --enable=warning    → include warnings on top of errors
+# --suppress=missingIncludeSystem → ignore system header gaps in a cross-compile env
+CPPCHECK_OUT=$(cppcheck \
+    --error-exitcode=1 \
+    --enable=warning \
+    --suppress=missingIncludeSystem \
+    --quiet \
+    "${FILES[@]}" 2>&1) && RC=0 || RC=$?
+
+if [[ $RC -ne 0 ]]; then
+    echo ""
+    echo "pre-commit: cppcheck found issue(s) — commit blocked."
+    echo "-----------------------------------------------------"
+    echo "$CPPCHECK_OUT"
+    echo "-----------------------------------------------------"
+    echo "Fix the issues above, then re-stage and commit."
+    echo "To bypass (use sparingly): git commit --no-verify"
+    exit 1
+fi
+
+echo "pre-commit: cppcheck passed."
+exit 0
