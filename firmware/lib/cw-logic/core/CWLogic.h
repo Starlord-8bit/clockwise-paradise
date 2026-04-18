@@ -1,8 +1,8 @@
 #pragma once
 
 #include <cctype>
+#include <cstring>
 #include <string>
-#include <string_view>
 #include <utility>
 
 namespace cw {
@@ -76,11 +76,11 @@ inline RequestBodyReadResult readRequestBodyWithinWindow(
   return result;
 }
 
-inline bool parseSetEncodedAssignment(std::string_view encoded, std::string& key, std::string& value) {
+inline bool parseSetEncodedAssignment(const std::string& encoded, std::string& key, std::string& value) {
   if (encoded.empty()) return false;
 
   size_t separator = encoded.find('=');
-  if (separator == std::string_view::npos) {
+  if (separator == std::string::npos) {
     key.assign(encoded);
     value.clear();
     return !key.empty();
@@ -91,13 +91,16 @@ inline bool parseSetEncodedAssignment(std::string_view encoded, std::string& key
   return !key.empty();
 }
 
-inline void replaceAll(std::string& input, std::string_view from, std::string_view to) {
-  if (from.empty()) return;
+inline void replaceAll(std::string& input, const char* from, const char* to) {
+  if (from == NULL || to == NULL || *from == '\0') return;
+
+  const size_t fromLen = std::strlen(from);
+  const size_t toLen = std::strlen(to);
 
   size_t pos = 0;
-  while ((pos = input.find(from.data(), pos, from.size())) != std::string::npos) {
-    input.replace(pos, from.size(), to.data(), to.size());
-    pos += to.size();
+  while ((pos = input.find(from, pos)) != std::string::npos) {
+    input.replace(pos, fromLen, to);
+    pos += toLen;
   }
 }
 
@@ -120,26 +123,26 @@ inline std::string formUrlDecodeCopy(std::string value) {
   return urlDecodeCopy(std::move(value));
 }
 
-inline bool isSensitiveSetKey(std::string_view key) {
+inline bool isSensitiveSetKey(const std::string& key) {
   return key == "wifiPwd" || key == "mqttPass";
 }
 
-inline bool looksLikeNamedSetFormBody(std::string_view body) {
-  return body.find('&') != std::string_view::npos ||
-         body.rfind("key=", 0) == 0 ||
-         body.rfind("value=", 0) == 0 ||
+inline bool looksLikeNamedSetFormBody(const std::string& body) {
+  return body.find('&') != std::string::npos ||
+         body.find("key=") == 0 ||
+         body.find("value=") == 0 ||
          body == "key" ||
          body == "value";
 }
 
-inline bool getSetFormField(std::string_view body, std::string_view fieldName, std::string& value) {
+inline bool getSetFormField(const std::string& body, const char* fieldName, std::string& value) {
   size_t start = 0;
   while (start <= body.size()) {
     size_t end = body.find('&', start);
-    if (end == std::string_view::npos) end = body.size();
-    std::string_view token = body.substr(start, end - start);
+    if (end == std::string::npos) end = body.size();
+    std::string token = body.substr(start, end - start);
 
-    if (token.find('=') == std::string_view::npos) {
+    if (token.find('=') == std::string::npos) {
       if (end >= body.size()) break;
       start = end + 1;
       continue;
@@ -163,7 +166,7 @@ inline bool getSetFormField(std::string_view body, std::string_view fieldName, s
   return false;
 }
 
-inline std::string trimCopy(std::string_view value) {
+inline std::string trimCopy(const std::string& value) {
   size_t start = 0;
   while (start < value.size() && std::isspace(static_cast<unsigned char>(value[start]))) {
     ++start;
