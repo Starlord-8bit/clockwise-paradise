@@ -75,7 +75,18 @@ function toast(msg,ok){
   t.style.background=ok===false?'#b71c1c':'#2e7d32';
   t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);
 }
+function isSensitiveSettingKey(key){
+  return key==='wifiPwd'||key==='mqttPass';
+}
 function setKey(key,val){
+  if(isSensitiveSettingKey(key)){
+    return fetch('/set?'+encodeURIComponent(key)+'=',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:'value='+encodeURIComponent(String(val))
+    })
+      .then(r=>{ if(r.status!==204) throw new Error('bad_status'); return true; });
+  }
   return fetch('/set?'+key+'='+encodeURIComponent(val),{method:'POST'})
     .then(r=>{ if(r.status!==204) throw new Error('bad_status'); return true; });
 }

@@ -176,6 +176,41 @@ test.describe('GET /sync — Sync & Connectivity', () => {
     const port = await page.locator('#mqttPort').inputValue();
     expect(port).toBe('1883');
   });
+
+  test('MQTT password updates keep the secret out of the URL', async ({ page }) => {
+    let requestUrl = '';
+    let requestBody = '';
+    await page.route('**/set?mqttPass=', async route => {
+      requestUrl = route.request().url();
+      requestBody = route.request().postData() || '';
+      await route.fulfill({ status: 204, body: '' });
+    });
+
+    await page.goto('/sync');
+    await page.waitForTimeout(2000);
+    await page.evaluate(() => setKey('mqttPass', 'topsecret123'));
+
+    expect(requestUrl).toContain('/set?mqttPass=');
+    expect(requestUrl).not.toContain('topsecret123');
+    expect(requestBody).toBe('value=topsecret123');
+  });
+
+  test('non-sensitive sync updates still use query-string values', async ({ page }) => {
+    let requestUrl = '';
+    let requestBody = '';
+    await page.route('**/set?timeZone=*', async route => {
+      requestUrl = route.request().url();
+      requestBody = route.request().postData() || '';
+      await route.fulfill({ status: 204, body: '' });
+    });
+
+    await page.goto('/sync');
+    await page.waitForTimeout(2000);
+    await page.evaluate(() => setKey('timeZone', 'America/New_York'));
+
+    expect(requestUrl).toContain('/set?timeZone=America%2FNew_York');
+    expect(requestBody).toBe('');
+  });
 });
 
 // ─── Hardware page ───────────────────────────────────────────────────────────

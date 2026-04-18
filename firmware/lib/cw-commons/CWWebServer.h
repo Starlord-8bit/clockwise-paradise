@@ -5,6 +5,7 @@
 #include <CWPreferences.h>
 #include <CWOTA.h>
 #include <CWWidgetManager.h>
+#include "../cw-logic/core/CWLogic.h"
 #include "StatusController.h"
 #include "esp_log.h"
 
@@ -33,6 +34,8 @@ extern WiFiServer server;
 
 struct ClockwiseWebServer
 {
+  static constexpr unsigned long SET_REQUEST_BODY_RECEIVE_WINDOW_MS = cw::logic::kSetRequestBodyReceiveWindowMs;
+
   String httpBuffer;
   bool force_restart;
   uint8_t pending_clockface_index = 255; // 255 = no pending switch
@@ -100,8 +103,7 @@ struct ClockwiseWebServer
     String key = "", value = "";
     if (path.indexOf('?') > 0) {
       String qs = path.substring(path.indexOf('?') + 1);
-      key   = qs.substring(0, qs.indexOf('='));
-      value = qs.substring(qs.indexOf('=') + 1);
+      parseEncodedAssignment(qs, key, value);
       path  = path.substring(0, path.indexOf('?'));
     }
 
@@ -138,12 +140,48 @@ struct ClockwiseWebServer
 
     // --- All other routes: drain remaining headers quickly then process ---
     {
+      int contentLength = 0;
       client.setTimeout(100);
       unsigned long hdr_deadline = millis() + 500;
       while (client.connected() && millis() < hdr_deadline) {
         String line = client.readStringUntil('\n');
         line.trim();
         if (line.isEmpty()) break;
+        String lower = line; lower.toLowerCase();
+        if (lower.startsWith("content-length:")) {
+          contentLength = line.substring(15).toInt();
+        }
+      }
+
+      if (method == "POST" && path == "/set" && contentLength > 0) {
+        cw::logic::RequestBodyReadResult body = readSetRequestBody(client, contentLength);
+        cw::logic::SetRequestResolution resolved = cw::logic::resolveSetRequest(
+          std::string(key.c_str()),
+          std::string(value.c_str()),
+          std::string(body.body.c_str()),
+          body.complete
+        );
+
+        if (resolved.status == cw::logic::SetRequestResolutionStatus::kRejectIncompleteBody) {
+          client.println("HTTP/1.0 400 Bad Request");
+          client.println("Content-Type: application/json");
+          client.println();
+          client.print("{\"status\":\"error\",\"message\":\"Incomplete request body\"}");
+          client.stop();
+          return;
+        }
+
+        if (resolved.status == cw::logic::SetRequestResolutionStatus::kRejectInvalidBody) {
+          client.println("HTTP/1.0 400 Bad Request");
+          client.println("Content-Type: application/json");
+          client.println();
+          client.print("{\"status\":\"error\",\"message\":\"Invalid request body\"}");
+          client.stop();
+          return;
+        }
+
+        key = resolved.key.c_str();
+        value = resolved.value.c_str();
       }
     }
 
@@ -387,13 +425,47 @@ struct ClockwiseWebServer
   struct SettB   { const char* k; bool     ClockwiseParams::*f; };
   struct SettS   { const char* k; String   ClockwiseParams::*f; };
 
+  static bool parseEncodedAssignment(const String& encoded, String& key, String& value) {
+    std::string decodedKey;
+    std::string decodedValue;
+    bool parsed = cw::logic::parseEncodedAssignment(encoded.c_str(), decodedKey, decodedValue);
+    key = decodedKey.c_str();
+    value = decodedValue.c_str();
+    return parsed;
+  }
+
   static void urlDecode(String& v) {
-    v.replace("%2F", "/"); v.replace("%2f", "/");
-    v.replace("%3A", ":"); v.replace("%3a", ":");
-    v.replace("%20", " ");
-    v.replace("%40", "@");
-    v.replace("%2B", "+"); v.replace("%2b", "+");
-    v.replace("%2C", ","); v.replace("%2c", ",");
+    v = cw::logic::urlDecodeCopy(v.c_str()).c_str();
+  }
+
+  static cw::logic::RequestBodyReadResult readSetRequestBody(WiFiClient& client, int contentLength) {
+    if (contentLength <= 0) {
+      return {"", true};
+    }
+
+    return cw::logic::readRequestBodyWithinWindow(
+      static_cast<size_t>(contentLength),
+      SET_REQUEST_BODY_RECEIVE_WINDOW_MS,
+      [&client]() {
+        return client.available();
+      },
+      [&client](std::string& body, size_t remaining) {
+        size_t appended = 0;
+        while (appended < remaining && client.available() > 0) {
+          const int next = client.read();
+          if (next < 0) break;
+          body.push_back(static_cast<char>(next));
+          ++appended;
+        }
+        return appended;
+      },
+      []() {
+        delay(1);
+      },
+      []() {
+        return millis();
+      }
+    );
   }
 
   /**

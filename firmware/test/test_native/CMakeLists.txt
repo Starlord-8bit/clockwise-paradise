@@ -12,4 +12,5 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(unity)
 
 add_executable(test_native SimpleTests.cpp)
+target_include_directories(test_native PRIVATE ../../lib/cw-logic/core)
 target_link_libraries(test_native PRIVATE unity)
