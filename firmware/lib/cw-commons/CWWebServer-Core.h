@@ -2,9 +2,7 @@
 
 #include <WiFi.h>
 #include <functional>
-#include <CWPreferences.h>
 #include "StatusController.h"
-#include "esp_log.h"
 
 #include "CWWebServer-HTTP.h"
 #include "CWWebServer-Router.h"

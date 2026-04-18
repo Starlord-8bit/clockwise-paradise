@@ -1,14 +1,11 @@
 #pragma once
 
-#include <WiFi.h>
+#include <Arduino.h>
 #include <functional>
-#include <CWPreferences.h>
 
 #ifndef CLOCKFACE_NAME
   #define CLOCKFACE_NAME "UNKNOWN"
 #endif
-
-extern WiFiServer server;
 
 // Include all modular components
 #include "CWWebServer-Core.h"
