@@ -8,6 +8,12 @@
 struct CWWebServerSettings {
   static constexpr unsigned long SET_REQUEST_BODY_RECEIVE_WINDOW_MS = cw::logic::kSetRequestBodyReceiveWindowMs;
 
+  enum class SetApplyResult {
+    kRejected,
+    kPersistMutation,
+    kAlreadyPersisted,
+  };
+
   // ── Setting descriptors (pointer-to-member, type-safe) ──────────────────
   struct SettU8  { const char* k; uint8_t  ClockwiseParams::*f; };
   struct SettU16 { const char* k; uint16_t ClockwiseParams::*f; };
@@ -65,12 +71,12 @@ struct CWWebServerSettings {
    *
    * Callbacks are captured as function pointers passed from the main server instance.
    */
-  static bool handleSet(
+  static SetApplyResult handleSet(
     const String& key,
     const String& value,
     std::function<void(uint8_t)> onBrightnessChange,
     std::function<void(bool)> on24hFormatChange,
-    std::function<void(uint8_t)> onClockfaceSwitch,
+    std::function<bool(uint8_t)> onClockfaceSwitch,
     std::function<bool(const String&)> onWidgetSwitch,
     bool& force_restart
   ) {
@@ -80,20 +86,31 @@ struct CWWebServerSettings {
     if (key == "displayBright") {
       p->displayBright = (uint8_t)value.toInt();
       if (onBrightnessChange) onBrightnessChange(p->displayBright);
-      return true;
+      return SetApplyResult::kPersistMutation;
     }
     if (key == "use24hFormat") {
       p->use24hFormat = (value == "1");
       if (on24hFormatChange) on24hFormatChange(p->use24hFormat);
-      return true;
+      return SetApplyResult::kPersistMutation;
     }
     if (key == "clockFaceIndex") {
       uint8_t idx = (uint8_t)value.toInt();
+      const bool hasClockfaceSwitchCallback = static_cast<bool>(onClockfaceSwitch);
+      const bool runtimeSwitchSucceeded = !hasClockfaceSwitchCallback || onClockfaceSwitch(idx);
+
+      if (cw::logic::resolveClockfaceSetApplyDecision(hasClockfaceSwitchCallback, runtimeSwitchSucceeded)
+          == cw::logic::ClockfaceSetApplyDecision::kReject) {
+        ESP_LOGW("Web", "Clockface %u was not activated", idx);
+        return SetApplyResult::kRejected;
+      }
+
       p->clockFaceIndex = idx;
       p->activeWidget = "clock";
-      if (onClockfaceSwitch) onClockfaceSwitch(idx);
-      else force_restart = true;
-      return true;
+      if (!hasClockfaceSwitchCallback) {
+        force_restart = true;
+      }
+
+      return SetApplyResult::kPersistMutation;
     }
     if (key == "activeWidget") {
       String normalized = value;
@@ -101,18 +118,19 @@ struct CWWebServerSettings {
       if (onWidgetSwitch) {
         if (!onWidgetSwitch(normalized)) {
           ESP_LOGW("Web", "Widget '%s' not activated", normalized.c_str());
-          return false;
+          return SetApplyResult::kRejected;
         }
+        return SetApplyResult::kAlreadyPersisted;
       } else {
         p->activeWidget = normalized;
         force_restart = true;
+        return SetApplyResult::kPersistMutation;
       }
-      return true;
     }
     if (key == "autoBright") {
       p->autoBrightMin = value.substring(0, 4).toInt();
       p->autoBrightMax = value.substring(5, 9).toInt();
-      return true;
+      return SetApplyResult::kPersistMutation;
     }
     // Legacy colour swap — also updates ledColorOrder
     if (key == "swapBlueGreen") {
@@ -120,14 +138,14 @@ struct CWWebServerSettings {
       p->ledColorOrder = (value == "1") ? ClockwiseParams::LED_ORDER_RBG
                        : (p->swapBlueRed ? ClockwiseParams::LED_ORDER_GBR
                                          : ClockwiseParams::LED_ORDER_RGB);
-      return true;
+      return SetApplyResult::kPersistMutation;
     }
     if (key == "swapBlueRed") {
       p->swapBlueRed = (value == "1");
       p->ledColorOrder = (value == "1") ? ClockwiseParams::LED_ORDER_GBR
                        : (p->swapBlueGreen ? ClockwiseParams::LED_ORDER_RBG
                                            : ClockwiseParams::LED_ORDER_RGB);
-      return true;
+      return SetApplyResult::kPersistMutation;
     }
 
     // ── Table-driven simple settings ──
@@ -150,25 +168,25 @@ struct CWWebServerSettings {
       { "nightAction",     &ClockwiseParams::nightAction },
       { "nightMinBr",      &ClockwiseParams::nightMinBr },
     };
-    for (const auto& s : U8S) if (key == s.k) { p->*(s.f) = (uint8_t)value.toInt(); return true; }
+    for (const auto& s : U8S) if (key == s.k) { p->*(s.f) = (uint8_t)value.toInt(); return SetApplyResult::kPersistMutation; }
 
     static const SettU16 U16S[] = {
       { "superColor", &ClockwiseParams::superColor },
       { "mqttPort",   &ClockwiseParams::mqttPort },
       { "nightLdrThr", &ClockwiseParams::nightLdrThres },
     };
-    for (const auto& s : U16S) if (key == s.k) { p->*(s.f) = (uint16_t)value.toInt(); return true; }
+    for (const auto& s : U16S) if (key == s.k) { p->*(s.f) = (uint16_t)value.toInt(); return SetApplyResult::kPersistMutation; }
 
     static const SettU32 U32S[] = {
       { "i2cSpeed", &ClockwiseParams::i2cSpeed },
     };
-    for (const auto& s : U32S) if (key == s.k) { p->*(s.f) = (uint32_t)value.toInt(); return true; }
+    for (const auto& s : U32S) if (key == s.k) { p->*(s.f) = (uint32_t)value.toInt(); return SetApplyResult::kPersistMutation; }
 
     static const SettB BS[] = {
       { "reversePhase", &ClockwiseParams::reversePhase },
       { "mqttEnabled",  &ClockwiseParams::mqttEnabled },
     };
-    for (const auto& s : BS) if (key == s.k) { p->*(s.f) = (value == "1"); return true; }
+    for (const auto& s : BS) if (key == s.k) { p->*(s.f) = (value == "1"); return SetApplyResult::kPersistMutation; }
 
     static const SettS SS[] = {
       { "wifiSsid",     &ClockwiseParams::wifiSsid },
@@ -186,8 +204,8 @@ struct CWWebServerSettings {
       { "bigclockSrv",  &ClockwiseParams::bigclockServer },
       { "bigclockFile", &ClockwiseParams::bigclockFile },
     };
-    for (const auto& s : SS) if (key == s.k) { p->*(s.f) = value; return true; }
+    for (const auto& s : SS) if (key == s.k) { p->*(s.f) = value; return SetApplyResult::kPersistMutation; }
 
-    return false;
+    return SetApplyResult::kRejected;
   }
 };

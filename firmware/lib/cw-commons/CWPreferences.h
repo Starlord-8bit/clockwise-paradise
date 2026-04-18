@@ -2,6 +2,8 @@
 
 #include <Preferences.h>
 
+#include "../cw-logic/core/CWLogic.h"
+
 #ifndef CW_PREF_DB_NAME
     #define CW_PREF_DB_NAME "clockwise"
 #endif
@@ -135,7 +137,39 @@ struct ClockwiseParams
     String   mqttPass;
     String   mqttPrefix;
 
-    ClockwiseParams() {
+    ClockwiseParams()
+        : swapBlueGreen(false)
+        , swapBlueRed(false)
+        , ledColorOrder(LED_ORDER_RGB)
+        , reversePhase(false)
+        , use24hFormat(true)
+        , displayBright(32)
+        , autoBrightMin(0)
+        , autoBrightMax(0)
+        , ldrPin(35)
+        , displayRotation(0)
+        , driver(0)
+        , i2cSpeed((uint32_t)8000000)
+        , E_pin(18)
+        , autoChange(AUTO_CHANGE_OFF)
+        , brightMethod(0)
+        , nightStartH(22)
+        , nightStartM(0)
+        , nightEndH(7)
+        , nightEndM(0)
+        , nightBright(8)
+        , nightMode(0)
+        , nightLevel(1)
+        , nightTrigger(0)
+        , nightLdrThres(128)
+        , nightAction(0)
+        , nightMinBr(8)
+        , superColor(16936)
+        , totalDays(0)
+        , clockFaceIndex(0)
+        , otaEnabled(true)
+        , mqttEnabled(false)
+        , mqttPort(1883) {
         preferences.begin("clockwise", false);
     }
 
@@ -205,6 +239,148 @@ struct ClockwiseParams
     void saveActiveWidget()
     {
         preferences.putString(PREF_ACTIVE_WIDGET, activeWidget);
+    }
+
+    void saveSetMutation(const String& key)
+    {
+        switch (cw::logic::resolveSetPersistenceKey(key.c_str())) {
+            case cw::logic::SetPersistenceKey::kDisplayBright:
+                preferences.putUInt(PREF_DISPLAY_BRIGHT, displayBright);
+                break;
+            case cw::logic::SetPersistenceKey::kUse24hFormat:
+                preferences.putBool(PREF_USE_24H_FORMAT, use24hFormat);
+                break;
+            case cw::logic::SetPersistenceKey::kClockFaceIndex:
+                preferences.putUChar(PREF_CLOCKFACE_INDEX, clockFaceIndex);
+                preferences.putString(PREF_ACTIVE_WIDGET, activeWidget);
+                break;
+            case cw::logic::SetPersistenceKey::kActiveWidget:
+                preferences.putString(PREF_ACTIVE_WIDGET, activeWidget);
+                break;
+            case cw::logic::SetPersistenceKey::kAutoBright:
+                preferences.putUInt(PREF_DISPLAY_ABC_MIN, autoBrightMin);
+                preferences.putUInt(PREF_DISPLAY_ABC_MAX, autoBrightMax);
+                break;
+            case cw::logic::SetPersistenceKey::kSwapBlueGreen:
+                preferences.putBool(PREF_SWAP_BLUE_GREEN, swapBlueGreen);
+                preferences.putUInt(PREF_LED_COLOR_ORDER, ledColorOrder);
+                break;
+            case cw::logic::SetPersistenceKey::kSwapBlueRed:
+                preferences.putBool(PREF_SWAP_BLUE_RED, swapBlueRed);
+                preferences.putUInt(PREF_LED_COLOR_ORDER, ledColorOrder);
+                break;
+            case cw::logic::SetPersistenceKey::kLedColorOrder:
+                preferences.putUInt(PREF_LED_COLOR_ORDER, ledColorOrder);
+                break;
+            case cw::logic::SetPersistenceKey::kAutoChange:
+                preferences.putUInt(PREF_AUTO_CHANGE, autoChange);
+                break;
+            case cw::logic::SetPersistenceKey::kLdrPin:
+                preferences.putUInt(PREF_LDR_PIN, ldrPin);
+                break;
+            case cw::logic::SetPersistenceKey::kDisplayRotation:
+                preferences.putUInt(PREF_DISPLAY_ROTATION, displayRotation);
+                break;
+            case cw::logic::SetPersistenceKey::kDriver:
+                preferences.putUInt(PREF_DRIVER, driver);
+                break;
+            case cw::logic::SetPersistenceKey::kEPin:
+                preferences.putUInt(PREF_E_PIN, E_pin);
+                break;
+            case cw::logic::SetPersistenceKey::kBrightMethod:
+                preferences.putUInt(PREF_BRIGHT_METHOD, brightMethod);
+                break;
+            case cw::logic::SetPersistenceKey::kNightStartH:
+                preferences.putUInt(PREF_NIGHT_START_H, nightStartH);
+                break;
+            case cw::logic::SetPersistenceKey::kNightStartM:
+                preferences.putUInt(PREF_NIGHT_START_M, nightStartM);
+                break;
+            case cw::logic::SetPersistenceKey::kNightEndH:
+                preferences.putUInt(PREF_NIGHT_END_H, nightEndH);
+                break;
+            case cw::logic::SetPersistenceKey::kNightEndM:
+                preferences.putUInt(PREF_NIGHT_END_M, nightEndM);
+                break;
+            case cw::logic::SetPersistenceKey::kNightBright:
+                preferences.putUInt(PREF_NIGHT_BRIGHT, nightBright);
+                break;
+            case cw::logic::SetPersistenceKey::kNightMode:
+                preferences.putUInt(PREF_NIGHT_MODE, nightMode);
+                break;
+            case cw::logic::SetPersistenceKey::kNightLevel:
+                preferences.putUInt(PREF_NIGHT_LEVEL, nightLevel);
+                break;
+            case cw::logic::SetPersistenceKey::kNightTrig:
+                preferences.putUInt(PREF_NIGHT_TRIGGER, nightTrigger);
+                break;
+            case cw::logic::SetPersistenceKey::kNightAction:
+                preferences.putUInt(PREF_NIGHT_ACTION, nightAction);
+                break;
+            case cw::logic::SetPersistenceKey::kNightMinBr:
+                preferences.putUInt(PREF_NIGHT_MIN_BRT, nightMinBr);
+                break;
+            case cw::logic::SetPersistenceKey::kSuperColor:
+                preferences.putUInt(PREF_SUPER_COLOR, superColor);
+                break;
+            case cw::logic::SetPersistenceKey::kMqttPort:
+                preferences.putUInt(PREF_MQTT_PORT, mqttPort);
+                break;
+            case cw::logic::SetPersistenceKey::kNightLdrThr:
+                preferences.putUInt(PREF_NIGHT_LDR_THRES, nightLdrThres);
+                break;
+            case cw::logic::SetPersistenceKey::kI2cSpeed:
+                preferences.putUInt(PREF_I2CSPEED, i2cSpeed);
+                break;
+            case cw::logic::SetPersistenceKey::kReversePhase:
+                preferences.putBool(PREF_REVERSE_PHASE, reversePhase);
+                break;
+            case cw::logic::SetPersistenceKey::kMqttEnabled:
+                preferences.putBool(PREF_MQTT_ENABLED, mqttEnabled);
+                break;
+            case cw::logic::SetPersistenceKey::kWifiSsid:
+                preferences.putString(PREF_WIFI_SSID, wifiSsid);
+                break;
+            case cw::logic::SetPersistenceKey::kWifiPwd:
+                preferences.putString(PREF_WIFI_PASSWORD, wifiPwd);
+                break;
+            case cw::logic::SetPersistenceKey::kTimeZone:
+                preferences.putString(PREF_TIME_ZONE, timeZone);
+                break;
+            case cw::logic::SetPersistenceKey::kNtpServer:
+                preferences.putString(PREF_NTP_SERVER, ntpServer);
+                break;
+            case cw::logic::SetPersistenceKey::kCanvasFile:
+                preferences.putString(PREF_CANVAS_FILE, canvasFile);
+                break;
+            case cw::logic::SetPersistenceKey::kCanvasServer:
+                preferences.putString(PREF_CANVAS_SERVER, canvasServer);
+                break;
+            case cw::logic::SetPersistenceKey::kManualPosix:
+                preferences.putString(PREF_MANUAL_POSIX, manualPosix);
+                break;
+            case cw::logic::SetPersistenceKey::kMqttBroker:
+                preferences.putString(PREF_MQTT_BROKER, mqttBroker);
+                break;
+            case cw::logic::SetPersistenceKey::kMqttUser:
+                preferences.putString(PREF_MQTT_USER, mqttUser);
+                break;
+            case cw::logic::SetPersistenceKey::kMqttPass:
+                preferences.putString(PREF_MQTT_PASS, mqttPass);
+                break;
+            case cw::logic::SetPersistenceKey::kMqttPrefix:
+                preferences.putString(PREF_MQTT_PREFIX, mqttPrefix);
+                break;
+            case cw::logic::SetPersistenceKey::kBigclockSrv:
+                preferences.putString(PREF_BIGCLOCK_SERVER, bigclockServer);
+                break;
+            case cw::logic::SetPersistenceKey::kBigclockFile:
+                preferences.putString(PREF_BIGCLOCK_FILE, bigclockFile);
+                break;
+            case cw::logic::SetPersistenceKey::kUnknown:
+            default:
+                break;
+        }
     }
 
     void saveTotalDays()

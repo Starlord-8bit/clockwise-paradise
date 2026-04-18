@@ -5,10 +5,7 @@
 
 void bindMqttCallbacks(AppState& state) {
   CWMqtt::getInstance()->onClockfaceSwitch = [&state](uint8_t idx) {
-    if (state.widgetManager.activateClockWidget(idx)) {
-      ClockwiseParams::getInstance()->clockFaceIndex = idx;
-      ClockwiseParams::getInstance()->saveClockfaceIndex();
-    }
+    return state.widgetManager.activateClockWidget(idx);
   };
 
   CWMqtt::getInstance()->onWidgetSwitch = [&state](const String& widgetName) {

@@ -31,7 +31,7 @@ struct CWWebServerCore {
     bool& force_restart,
     std::function<void(uint8_t)> onBrightnessChange,
     std::function<void(bool)> on24hFormatChange,
-    std::function<void(uint8_t)> onClockfaceSwitch,
+    std::function<bool(uint8_t)> onClockfaceSwitch,
     std::function<bool(const String&)> onWidgetSwitch,
     std::function<String()> onWidgetStateJson
   ) {

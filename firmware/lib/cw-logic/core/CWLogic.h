@@ -17,6 +17,58 @@ enum class SetRequestResolutionStatus {
   kRejectInvalidBody,
 };
 
+enum class SetPersistenceKey {
+  kUnknown,
+  kDisplayBright,
+  kUse24hFormat,
+  kClockFaceIndex,
+  kActiveWidget,
+  kAutoBright,
+  kSwapBlueGreen,
+  kSwapBlueRed,
+  kLedColorOrder,
+  kAutoChange,
+  kLdrPin,
+  kDisplayRotation,
+  kDriver,
+  kEPin,
+  kBrightMethod,
+  kNightStartH,
+  kNightStartM,
+  kNightEndH,
+  kNightEndM,
+  kNightBright,
+  kNightMode,
+  kNightLevel,
+  kNightTrig,
+  kNightAction,
+  kNightMinBr,
+  kSuperColor,
+  kMqttPort,
+  kNightLdrThr,
+  kI2cSpeed,
+  kReversePhase,
+  kMqttEnabled,
+  kWifiSsid,
+  kWifiPwd,
+  kTimeZone,
+  kNtpServer,
+  kCanvasFile,
+  kCanvasServer,
+  kManualPosix,
+  kMqttBroker,
+  kMqttUser,
+  kMqttPass,
+  kMqttPrefix,
+  kBigclockSrv,
+  kBigclockFile,
+};
+
+enum class ClockfaceSetApplyDecision {
+  kReject,
+  kPersistMutation,
+};
+
 struct SetRequestResolution {
   std::string key;
   std::string value;
@@ -125,6 +177,64 @@ inline std::string formUrlDecodeCopy(std::string value) {
 
 inline bool isSensitiveSetKey(const std::string& key) {
   return key == "wifiPwd" || key == "mqttPass";
+}
+
+inline SetPersistenceKey resolveSetPersistenceKey(const std::string& key) {
+  if (key == "displayBright") return SetPersistenceKey::kDisplayBright;
+  if (key == "use24hFormat") return SetPersistenceKey::kUse24hFormat;
+  if (key == "clockFaceIndex") return SetPersistenceKey::kClockFaceIndex;
+  if (key == "activeWidget") return SetPersistenceKey::kActiveWidget;
+  if (key == "autoBright") return SetPersistenceKey::kAutoBright;
+  if (key == "swapBlueGreen") return SetPersistenceKey::kSwapBlueGreen;
+  if (key == "swapBlueRed") return SetPersistenceKey::kSwapBlueRed;
+  if (key == "ledColorOrder") return SetPersistenceKey::kLedColorOrder;
+  if (key == "autoChange") return SetPersistenceKey::kAutoChange;
+  if (key == "ldrPin") return SetPersistenceKey::kLdrPin;
+  if (key == "displayRotation") return SetPersistenceKey::kDisplayRotation;
+  if (key == "driver") return SetPersistenceKey::kDriver;
+  if (key == "E_pin") return SetPersistenceKey::kEPin;
+  if (key == "brightMethod") return SetPersistenceKey::kBrightMethod;
+  if (key == "nightStartH") return SetPersistenceKey::kNightStartH;
+  if (key == "nightStartM") return SetPersistenceKey::kNightStartM;
+  if (key == "nightEndH") return SetPersistenceKey::kNightEndH;
+  if (key == "nightEndM") return SetPersistenceKey::kNightEndM;
+  if (key == "nightBright") return SetPersistenceKey::kNightBright;
+  if (key == "nightMode") return SetPersistenceKey::kNightMode;
+  if (key == "nightLevel") return SetPersistenceKey::kNightLevel;
+  if (key == "nightTrig") return SetPersistenceKey::kNightTrig;
+  if (key == "nightAction") return SetPersistenceKey::kNightAction;
+  if (key == "nightMinBr") return SetPersistenceKey::kNightMinBr;
+  if (key == "superColor") return SetPersistenceKey::kSuperColor;
+  if (key == "mqttPort") return SetPersistenceKey::kMqttPort;
+  if (key == "nightLdrThr") return SetPersistenceKey::kNightLdrThr;
+  if (key == "i2cSpeed") return SetPersistenceKey::kI2cSpeed;
+  if (key == "reversePhase") return SetPersistenceKey::kReversePhase;
+  if (key == "mqttEnabled") return SetPersistenceKey::kMqttEnabled;
+  if (key == "wifiSsid") return SetPersistenceKey::kWifiSsid;
+  if (key == "wifiPwd") return SetPersistenceKey::kWifiPwd;
+  if (key == "timeZone") return SetPersistenceKey::kTimeZone;
+  if (key == "ntpServer") return SetPersistenceKey::kNtpServer;
+  if (key == "canvasFile") return SetPersistenceKey::kCanvasFile;
+  if (key == "canvasServer") return SetPersistenceKey::kCanvasServer;
+  if (key == "manualPosix") return SetPersistenceKey::kManualPosix;
+  if (key == "mqttBroker") return SetPersistenceKey::kMqttBroker;
+  if (key == "mqttUser") return SetPersistenceKey::kMqttUser;
+  if (key == "mqttPass") return SetPersistenceKey::kMqttPass;
+  if (key == "mqttPrefix") return SetPersistenceKey::kMqttPrefix;
+  if (key == "bigclockSrv") return SetPersistenceKey::kBigclockSrv;
+  if (key == "bigclockFile") return SetPersistenceKey::kBigclockFile;
+  return SetPersistenceKey::kUnknown;
+}
+
+inline ClockfaceSetApplyDecision resolveClockfaceSetApplyDecision(
+  bool hasRuntimeSwitchCallback,
+  bool runtimeSwitchSucceeded
+) {
+  if (hasRuntimeSwitchCallback && !runtimeSwitchSucceeded) {
+    return ClockfaceSetApplyDecision::kReject;
+  }
+
+  return ClockfaceSetApplyDecision::kPersistMutation;
 }
 
 inline bool looksLikeNamedSetFormBody(const std::string& body) {
