@@ -4,7 +4,7 @@ description: Produce a structured Task Contract from a user request. Called by t
 
 # Task Contract
 
-A Task Contract turns an informal user request into a spec the specialist can execute and the reviewer can cross-check. Produce one per dispatch (except for genuinely trivial one-liners).
+A Task Contract turns an informal user request into a spec the specialist can execute and the reviewer can cross-check. Produce one per dispatch except for genuinely trivial docs-only one-liners, where a constrained brief is acceptable.
 
 ## Format
 
@@ -57,8 +57,24 @@ A Task Contract turns an informal user request into a spec the specialist can ex
 - **Goal first, implementation last.** If the Goal section mentions a specific function or file, rewrite it.
 - **Acceptance criteria must be testable.** "Works correctly" is not acceptance — "timer at 0 returns to current clockface within 1 s" is.
 - **In-scope / out-of-scope are binding.** If the specialist needs a file not listed, they must stop and ask.
-- **Name the rules in play.** If the change touches `loop()`, name RT-1. If it adds an NVS key, name RT-4. This gives the reviewer the checklist up front.
+- **Name the rules in play.** If the change touches `loop()`, name RT-1. If it adds an NVS key, name RT-4. For reviewer-routed work, the reviewer must verify every named rule explicitly.
 - **Known unknowns section is where the PM makes defensible defaults.** Specialists follow the default unless they hit a blocker.
+
+## Docs-only exception
+
+For docs-only or chore-only work:
+
+- route to `coder`
+- do not invent a reviewer type that does not exist
+- do not label the work as `type: firmware` or `type: frontend` just to fit the reviewer router
+
+A full Task Contract is still preferred. A one-paragraph brief is acceptable only when the task is genuinely trivial and the brief includes:
+
+- goal
+- in-scope file or files
+- out-of-scope boundary
+- acceptance expectation
+- verification required
 
 ## Anti-patterns
 
@@ -69,4 +85,4 @@ A Task Contract turns an informal user request into a spec the specialist can ex
 
 ## After writing the contract
 
-Hand the full contract to the specialist via the dispatch message. The specialist echoes the contract's slug in their Handoff Contract so the reviewer can cross-check scope.
+Hand the full contract to the specialist via the dispatch message. For reviewer-routed work, the specialist echoes the contract's slug in their Handoff Contract so the reviewer can cross-check scope. For docs-only work, the specialist returns a completion note instead of a reviewer handoff.
