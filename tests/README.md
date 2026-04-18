@@ -1,11 +1,61 @@
-# Clockwise Paradise — E2E Tests
+# Clockwise Paradise — Test Surfaces
 
-Playwright end-to-end tests for the device WebUI.
+This repo has two live device-facing test paths:
+
+- Playwright end-to-end tests for the Web UI in `tests/e2e/`
+- Hardware smoke checks in `scripts/test_hw.py` for OTA, HTTP, and optional MQTT broker coverage
 
 ## Requirements
 
 - Node.js ≥ 18
 - Device reachable on the network
+
+## Hardware smoke test
+
+The hardware runner lives at `scripts/test_hw.py` and is the narrow hardware validation path for OTA, HTTP, and MQTT broker smoke coverage.
+
+MQTT smoke is optional because it needs a real broker and live device. The first pass is intentionally narrow: it proves broker connect, retained availability delivery, retained HA discovery delivery, state publication, and one safe command round-trip.
+
+### Extra requirements for MQTT smoke
+
+- Python package `paho-mqtt`
+- A broker reachable from both the test host and the device
+- A device you can safely repoint at that broker for the duration of the test
+
+Install the optional MQTT dependency with:
+
+```bash
+python3 -m pip install paho-mqtt
+```
+
+Run the broker-backed smoke path with:
+
+```bash
+python3 scripts/test_hw.py \
+	--skip-flash \
+	--ip 192.168.1.50 \
+	--mqtt-smoke \
+	--mqtt-host 192.168.1.10
+```
+
+With broker auth:
+
+```bash
+python3 scripts/test_hw.py \
+	--skip-flash \
+	--ip 192.168.1.50 \
+	--mqtt-smoke \
+	--mqtt-host 192.168.1.10 \
+	--mqtt-user clockwise \
+	--mqtt-pass topsecret
+```
+
+Notes:
+
+- The runner applies MQTT settings through the device HTTP API, restarts the device, and waits for the broker-side events.
+- To avoid retained-topic false positives, the runner uses a fresh per-run topic prefix unless `--mqtt-prefix` is passed explicitly.
+- The safe round-trip uses the brightness command topic, then restores the original brightness value.
+- The runner does not restore prior MQTT broker settings. Use a dedicated hardware test device or rerun with your preferred MQTT config afterward.
 
 ## Setup
 
