@@ -76,7 +76,7 @@ inline RequestBodyReadResult readRequestBodyWithinWindow(
   return result;
 }
 
-inline bool parseEncodedAssignment(std::string_view encoded, std::string& key, std::string& value) {
+inline bool parseSetEncodedAssignment(std::string_view encoded, std::string& key, std::string& value) {
   if (encoded.empty()) return false;
 
   size_t separator = encoded.find('=');
@@ -120,11 +120,11 @@ inline std::string formUrlDecodeCopy(std::string value) {
   return urlDecodeCopy(std::move(value));
 }
 
-inline bool isSensitiveSettingKey(std::string_view key) {
+inline bool isSensitiveSetKey(std::string_view key) {
   return key == "wifiPwd" || key == "mqttPass";
 }
 
-inline bool looksLikeNamedFormBody(std::string_view body) {
+inline bool looksLikeNamedSetFormBody(std::string_view body) {
   return body.find('&') != std::string_view::npos ||
          body.rfind("key=", 0) == 0 ||
          body.rfind("value=", 0) == 0 ||
@@ -132,7 +132,7 @@ inline bool looksLikeNamedFormBody(std::string_view body) {
          body == "value";
 }
 
-inline bool getFormField(std::string_view body, std::string_view fieldName, std::string& value) {
+inline bool getSetFormField(std::string_view body, std::string_view fieldName, std::string& value) {
   size_t start = 0;
   while (start <= body.size()) {
     size_t end = body.find('&', start);
@@ -147,7 +147,7 @@ inline bool getFormField(std::string_view body, std::string_view fieldName, std:
 
     std::string fieldKey;
     std::string fieldValue;
-    if (parseEncodedAssignment(token, fieldKey, fieldValue)) {
+    if (parseSetEncodedAssignment(token, fieldKey, fieldValue)) {
       fieldKey = formUrlDecodeCopy(std::move(fieldKey));
       fieldValue = formUrlDecodeCopy(std::move(fieldValue));
       if (fieldKey == fieldName) {
@@ -187,19 +187,19 @@ inline SetRequestResolution resolveSetRequest(std::string key, std::string value
     return {std::move(key), std::move(value), SetRequestResolutionStatus::kUseQuery};
   }
 
-  if (isSensitiveSettingKey(key)) {
+  if (isSensitiveSetKey(key)) {
     std::string bodyValue;
-    if (getFormField(body, "value", bodyValue)) {
+    if (getSetFormField(body, "value", bodyValue)) {
       return {std::move(key), std::move(bodyValue), SetRequestResolutionStatus::kResolvedFromBody};
     }
 
-    if (looksLikeNamedFormBody(body)) {
+    if (looksLikeNamedSetFormBody(body)) {
       return {std::move(key), std::move(value), SetRequestResolutionStatus::kRejectInvalidBody};
     }
 
     std::string encodedKey;
     std::string encodedValue;
-    if (body.find('=') != std::string::npos && parseEncodedAssignment(body, encodedKey, encodedValue)) {
+    if (body.find('=') != std::string::npos && parseSetEncodedAssignment(body, encodedKey, encodedValue)) {
       encodedKey = formUrlDecodeCopy(std::move(encodedKey));
       encodedValue = formUrlDecodeCopy(std::move(encodedValue));
       if (encodedKey == key) {
@@ -213,19 +213,19 @@ inline SetRequestResolution resolveSetRequest(std::string key, std::string value
 
   std::string bodyKey;
   std::string bodyValue;
-  bool hasBodyKey = getFormField(body, "key", bodyKey);
-  bool hasBodyValue = getFormField(body, "value", bodyValue);
-  if (hasBodyKey || hasBodyValue || looksLikeNamedFormBody(body)) {
-    if (hasBodyKey && hasBodyValue && isSensitiveSettingKey(bodyKey)) {
+  bool hasBodyKey = getSetFormField(body, "key", bodyKey);
+  bool hasBodyValue = getSetFormField(body, "value", bodyValue);
+  if (hasBodyKey || hasBodyValue || looksLikeNamedSetFormBody(body)) {
+    if (hasBodyKey && hasBodyValue && isSensitiveSetKey(bodyKey)) {
       return {std::move(bodyKey), std::move(bodyValue), SetRequestResolutionStatus::kResolvedFromBody};
     }
     return {std::move(key), std::move(value), SetRequestResolutionStatus::kRejectInvalidBody};
   }
 
-  if (body.find('=') != std::string::npos && parseEncodedAssignment(body, bodyKey, bodyValue)) {
+  if (body.find('=') != std::string::npos && parseSetEncodedAssignment(body, bodyKey, bodyValue)) {
     bodyKey = formUrlDecodeCopy(std::move(bodyKey));
     bodyValue = formUrlDecodeCopy(std::move(bodyValue));
-    if (isSensitiveSettingKey(bodyKey)) {
+    if (isSensitiveSetKey(bodyKey)) {
       return {std::move(bodyKey), std::move(bodyValue), SetRequestResolutionStatus::kResolvedFromBody};
     }
   }

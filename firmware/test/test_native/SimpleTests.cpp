@@ -146,9 +146,9 @@ void test_version_normalization_update_available(void) {
 }
 
 void test_sensitive_setting_detection(void) {
-    TEST_ASSERT_TRUE(cw::logic::isSensitiveSettingKey("wifiPwd"));
-    TEST_ASSERT_TRUE(cw::logic::isSensitiveSettingKey("mqttPass"));
-    TEST_ASSERT_FALSE(cw::logic::isSensitiveSettingKey("wifiSsid"));
+    TEST_ASSERT_TRUE(cw::logic::isSensitiveSetKey("wifiPwd"));
+    TEST_ASSERT_TRUE(cw::logic::isSensitiveSetKey("mqttPass"));
+    TEST_ASSERT_FALSE(cw::logic::isSensitiveSetKey("wifiSsid"));
 }
 
 void test_sensitive_body_overrides_query_value(void) {

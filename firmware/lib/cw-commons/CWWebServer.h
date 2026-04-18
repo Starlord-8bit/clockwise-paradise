@@ -428,7 +428,7 @@ struct ClockwiseWebServer
   static bool parseEncodedAssignment(const String& encoded, String& key, String& value) {
     std::string decodedKey;
     std::string decodedValue;
-    bool parsed = cw::logic::parseEncodedAssignment(encoded.c_str(), decodedKey, decodedValue);
+    bool parsed = cw::logic::parseSetEncodedAssignment(encoded.c_str(), decodedKey, decodedValue);
     key = decodedKey.c_str();
     value = decodedValue.c_str();
     return parsed;
