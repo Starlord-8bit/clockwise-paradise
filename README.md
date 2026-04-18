@@ -227,6 +227,31 @@ make flash PORT=/dev/ttyUSB0
 
 Or use the web flasher at [clockwise.page](https://clockwise.page) with a release `.bin`.
 
+### Pre-commit hook (static analysis)
+
+After cloning, run **once** to install the cppcheck pre-commit hook:
+
+```bash
+make install-hooks
+```
+
+The hook runs `cppcheck` on every staged `*.cpp` / `*.h` file before each commit.
+Third-party files under `components/` are automatically skipped.
+
+If the hook blocks your commit and you need to bypass it:
+
+```bash
+git commit --no-verify   # use sparingly — document the reason in the commit message
+```
+
+**Prerequisite:** `cppcheck` must be installed on your machine.
+```bash
+# Debian / Ubuntu
+sudo apt install cppcheck
+# macOS
+brew install cppcheck
+```
+
 ---
 
 ## 🔌 Flashing
