@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [2.10.0](https://github.com/Starlord-8bit/clockwise-paradise/compare/v2.9.0...v2.10.0) (2026-04-18)
+
+
+### Features
+
+* **core:** modularize runtime and bump 3.0.3 ([#30](https://github.com/Starlord-8bit/clockwise-paradise/issues/30)) ([43ed732](https://github.com/Starlord-8bit/clockwise-paradise/commit/43ed7326c26e2993b61d762c860c8aec955dd9fd))
+* widgets module, timer widget, Widgets UX page, WiFi resilience fixes, v3.0.1 ([6a4023a](https://github.com/Starlord-8bit/clockwise-paradise/commit/6a4023a265818370f52b1e28e9e7b06b7f91c908))
+
+
+### Bug Fixes
+
+* **night-mode:** preserve brightness across state transitions ([090038b](https://github.com/Starlord-8bit/clockwise-paradise/commit/090038be0cd289c43c1e69d3d1b75737f675563e))
+* **nvs:** reduce redundant settings writes ([6a19a36](https://github.com/Starlord-8bit/clockwise-paradise/commit/6a19a363ff8f92f1f189a70f37f72330a63082bc))
+* **webui:** post sensitive credential updates in request body ([#32](https://github.com/Starlord-8bit/clockwise-paradise/issues/32)) ([f29baa3](https://github.com/Starlord-8bit/clockwise-paradise/commit/f29baa361dd73bffc771342622e2a124547ec2ef))
+
 ## [2.9.0](https://github.com/Starlord-8bit/clockwise-paradise/compare/v2.7.0...v2.9.0) (2026-04-11)
 
 
